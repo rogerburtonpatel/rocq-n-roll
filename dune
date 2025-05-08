@@ -1,0 +1,3 @@
+(executable
+ (name main)
+ (libraries lsp yojson unix threads))

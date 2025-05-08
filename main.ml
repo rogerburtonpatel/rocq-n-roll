@@ -53,7 +53,7 @@ let read_file filename =
   Bytes.to_string s
 
 (* Process a Coq file with enhanced MIDI feedback *)
-let process_coq_file filename =
+let process_rocq_file filename =
   try
     (* Read the file content *)
     let content = read_file filename in
@@ -101,7 +101,7 @@ let process_coq_file filename =
     in
     
     (* Main interaction loop *)
-    Printf.printf "\n🎵 Interactive Coq Stepper with MIDI Sonification 🎵\n\n";
+    Printf.printf "\n🎵 Interactive Rocq Stepper with MIDI Sonification 🎵\n\n";
     Printf.printf "Commands: n (next step), q (quit)\n\n";
     
     let current_line = ref 0 in
@@ -170,8 +170,8 @@ let () =
   Printexc.record_backtrace true;
   
   if Array.length Sys.argv < 2 then begin
-    Printf.printf "Usage: %s <coq_file.v>\n" Sys.argv.(0);
+    Printf.printf "Usage: %s <rocq_file.v>\n" Sys.argv.(0);
     exit 1
   end else begin
-    process_coq_file Sys.argv.(1)
+    process_rocq_file Sys.argv.(1)
   end

@@ -57,3 +57,35 @@ the hooks' really means. Do we fork ROCQC? Do we fork LSP/PG? Is there an easy
 way to build software on top of these that doesn't involve recompilation? These
 are questions to answer together. 
 
+
+
+### 5.11
+1. FluidSynth or productive alternative 
+2. Ambient tone- run at start of program. 
+  - Envelope: 0 Attack for slow startup, 0 decay, inf. sustain until MIDI stop,
+    gentle release. 
+2. Pulsing beat. Simple, understated but with presence. 
+3. Comments are lightly tonal, perhaps altering the shape of the ambient tone? 
+4. Imports, functions similar for now. 
+5. Proofs are the meat. 
+
+TODO: 
+- [x] Install Fluidsynth (FS), get it working
+- [x] Research MIDI generation options: **Using Portmidi**
+- [ ] Set up PortMidi infrastructure 
+- [ ] Cook up some good Fluidsynth (FS) soundfonts
+- [ ] (Maybe): Use Garageband instead? A GUI is nice here for collaboration and
+soundfont building. 
+- [ ] Module to 
+  1. spawn FS w/ configuration:
+    - soundfont(s), 
+    - default initialization of the synth, 
+    - audio driver 
+  
+  (Do this with a config file or CL args)
+
+  2. inject ambience and rhythm 
+- [ ] Sound library for 
+  - comments 
+  - non-proof code
+  - proofs 

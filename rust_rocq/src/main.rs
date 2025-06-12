@@ -1,8 +1,19 @@
+use clap::Parser;
 use serde_json::json;
+use std::fs;
 use std::io::{self, BufRead, BufReader, Read, Write};
+use std::path::PathBuf;
 use std::process::{Command, Stdio};
 use std::sync::mpsc;
 use std::thread;
+
+#[derive(Parser)]
+#[command(name = "rust_rocq")]
+#[command(about = "Interactive Coq proof stepper with MIDI integration")]
+struct Args {
+    #[arg(help = "Path to the Coq (.v) file to process")]
+    file: PathBuf,
+}
 
 // MIDI processing placeholder function
 fn process_goals_to_midi(step_num: usize, line_text: &str, goals_json: &serde_json::Value) {
@@ -62,8 +73,49 @@ fn process_goals_to_midi(step_num: usize, line_text: &str, goals_json: &serde_js
     // - Map proof progress to tempo
 }
 
+fn extract_proof_steps(coq_content: &str) -> Vec<(usize, String)> {
+    let lines: Vec<&str> = coq_content.lines().collect();
+    let mut proof_steps = Vec::new();
+    let mut in_proof = false;
+    
+    for (line_num, line) in lines.iter().enumerate() {
+        let trimmed = line.trim();
+        
+        if trimmed == "Proof." {
+            in_proof = true;
+            continue;
+        }
+        
+        if trimmed == "Qed." || trimmed == "Defined." || trimmed.starts_with("Qed") || trimmed.starts_with("Defined") {
+            in_proof = false;
+            break;
+        }
+        
+        if in_proof && !trimmed.is_empty() && !trimmed.starts_with("(*") {
+            proof_steps.push((line_num, trimmed.to_string()));
+        }
+    }
+    
+    proof_steps
+}
+
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     env_logger::init();
+    
+    let args = Args::parse();
+    
+    // Validate file extension
+    if let Some(ext) = args.file.extension() {
+        if ext != "v" {
+            eprintln!("Warning: File does not have .v extension. Expected a Coq file.");
+        }
+    } else {
+        eprintln!("Warning: File has no extension. Expected a Coq (.v) file.");
+    }
+    
+    // Read the Coq file
+    let coq_file = fs::read_to_string(&args.file)
+        .map_err(|e| format!("Failed to read file '{}': {}", args.file.display(), e))?;
 
     // Start the Coq LSP process
     let mut coq_lsp = Command::new("coq-lsp")
@@ -186,26 +238,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Send initialized notification
     send_notification(&mut lsp_stdin, "initialized", &json!({}))?;
 
-    // The Coq file we want to step through
-    let coq_file = r#"
-Require Import Coq.Arith.Arith.
-
-Theorem add_comm : forall n m : nat, n + m = m + n.
-Proof.
-  intros n m.
-  induction n.
-  - simpl. rewrite <- plus_n_O. reflexivity.
-  - simpl. rewrite IHn. rewrite plus_n_Sm. reflexivity.
-Qed.
-    "#;
-
     println!("\nCoq proof to step through:");
     let lines: Vec<&str> = coq_file.lines().collect();
     for (i, line) in lines.iter().enumerate() {
         println!("{:2}: {}", i, line);
     }
 
-    let document_uri = "file:///tmp/example.v";
+    let document_uri = format!("file://{}", args.file.canonicalize()?.display());
 
     // Open the document
     let open_params = json!({
@@ -222,14 +261,13 @@ Qed.
     // Give the server time to process the document
     thread::sleep(std::time::Duration::from_secs(1));
 
-    // Define the lines we want to step through
-    // Line numbers are 0-based in LSP
-    let proof_lines = [
-        (4, "intros n m."),
-        (5, "induction n."),
-        (6, "- simpl. rewrite <- plus_n_O. reflexivity."),
-        (7, "- simpl. rewrite IHn. rewrite plus_n_Sm. reflexivity."),
-    ];
+    // Extract proof steps from the Coq file
+    let proof_lines = extract_proof_steps(&coq_file);
+    
+    if proof_lines.is_empty() {
+        println!("No proof steps found in the file. Make sure the file contains a proof with 'Proof.' and 'Qed.' markers.");
+        return Ok(());
+    }
 
     println!("\nInteractive Coq Proof Stepper with MIDI");
     println!("-------------------------------------");
@@ -297,7 +335,7 @@ Qed.
             break;
         }
 
-        let (line_num, line_text) = proof_lines[current_step];
+        let (line_num, line_text) = &proof_lines[current_step];
 
         // Show the current tactic and prompt
         println!("Current tactic: {}", line_text);
@@ -328,13 +366,7 @@ Qed.
             }
             "e" | "explain" => {
                 println!("\nExplanation of tactic: {}", line_text);
-                match current_step {
-                    0 => println!("'intros n m' moves the universally quantified variables n and m from the goal to the context as hypotheses."),
-                    1 => println!("'induction n' applies induction on the natural number n. This creates two subgoals: a base case for n=0 and an inductive case for n=S n'."),
-                    2 => println!("This step handles the base case (n=0):\n- 'simpl' simplifies the goal\n- 'rewrite <- plus_n_O' applies the lemma that n + 0 = n\n- 'reflexivity' completes the proof of this subgoal by showing the terms are identical"),
-                    3 => println!("This step handles the inductive case (n=S n'):\n- 'simpl' simplifies the goal to S (n' + m) = m + S n'\n- 'rewrite IHn' uses the induction hypothesis to replace n' + m with m + n'\n- 'rewrite plus_n_Sm' applies the lemma that m + S n' = S (m + n')\n- 'reflexivity' completes the proof by showing the terms are identical"),
-                    _ => println!("No explanation available"),
-                }
+                println!("(Generic explanation not available for this tactic)");
                 println!("");
                 continue;
             }
@@ -370,7 +402,7 @@ Qed.
                         "version": 1
                     },
                     "position": {
-                        "line": line_num,
+                        "line": *line_num,
                         "character": 0
                     }
                 });

@@ -500,6 +500,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3b3cff922bd51709b605d9ead9aa71031d81447142d828eb4a6eba76fe619f9b"
 
 [[package]]
+name = "portmidi"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "570122f94cf7e7a031169276220c67d00df1ea694894e0d3db47957555080dcb"
+
+[[package]]
 name = "potential_utf"
 version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -573,6 +579,8 @@ dependencies = [
  "log",
  "lsp-server",
  "lsp-types",
+ "portmidi",
+ "regex",
  "serde",
  "serde_json",
  "tokio",

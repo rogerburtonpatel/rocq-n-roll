@@ -27,6 +27,9 @@ struct Args {
 
 static CHANNEL: u8 = 0;
 
+// check the proof as you get closer to the failing tactic you get more and more offtune 
+// 
+
 // Tactic to (pitch, velocity) mapping
 fn create_tactic_midi_map() -> HashMap<&'static str, (u8, u8)> {
     let mut map = HashMap::new();

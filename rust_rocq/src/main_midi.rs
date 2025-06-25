@@ -311,7 +311,7 @@ fn play_proof_sequence(proof_steps: &[(usize, String)], midi_output: &mut MidiOu
         
         // Play note for 800ms with 200ms gap
         midi_output.play_note(pitch, velocity, Some(Duration::from_millis(800)));
-        thread::sleep(Duration::from_millis(200));
+        thread::sleep(Duration::from_millis(10000));
     }
     
     println!("[MIDI] Proof sequence complete!");
@@ -721,7 +721,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 println!("\n{}\n", "-".repeat(60));
 
                 // Stop previous notes before moving to next step
-                midi_output.stop_all_notes();
+              //  midi_output.stop_all_notes();
 
                 // Move to the next step
                 current_step += 1;

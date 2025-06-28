@@ -1,0 +1,1 @@
+{"version":3,"file":"ScriptVisitor.js","sourceRoot":"","sources":["../../src/script-parser/ScriptVisitor.ts"],"names":[],"mappings":";AAAA,2CAA2C;;;AAE3C,mCAA0C;AA0B1C,MAAqB,aAAsB,SAAQ,yBAAwB;CAE1E;AAFD,gCAEC;AAED,MAAa,eAAwB,SAAQ,yBAAwB;CAQpE;AARD,0CAQC;AAED,MAAa,aAAsB,SAAQ,yBAAwB;CAalE;AAbD,sCAaC;AAED,MAAa,cAAuB,SAAQ,yBAAwB;CAEnE;AAFD,wCAEC"}

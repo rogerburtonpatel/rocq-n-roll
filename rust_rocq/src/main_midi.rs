@@ -320,22 +320,22 @@ fn play_proof_sequence(proof_steps: &[(usize, String)], midi_output: &mut MidiOu
 fn extract_proof_steps(coq_content: &str) -> Vec<(usize, String)> {
     let lines: Vec<&str> = coq_content.lines().collect();
     let mut proof_steps = Vec::new();
-    let mut in_proof = false;
+    // let mut in_proof = false;
     
     for (line_num, line) in lines.iter().enumerate() {
         let trimmed = line.trim();
         
         if trimmed == "Proof." {
-            in_proof = true;
+            // in_proof = true;
             continue;
         }
         
         if trimmed == "Qed." || trimmed == "Defined." || trimmed.starts_with("Qed") || trimmed.starts_with("Defined") {
-            in_proof = false;
+            // in_proof = false;
             break;
         }
         
-        if in_proof && !trimmed.is_empty() && !trimmed.starts_with("(*") {
+        if !trimmed.is_empty() && !trimmed.starts_with("(*") {
             proof_steps.push((line_num, trimmed.to_string()));
         }
     }
@@ -470,11 +470,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     send_request(&mut lsp_stdin, 1, "initialize", &init_params)?;
 
     // Wait for initialize response
-    let mut initialize_response = None;
+    // let mut initialize_response = None;
     while let Ok(message) = rx.recv() {
         if let Some(id) = message.get("id") {
             if id.as_u64() == Some(1) && message.get("result").is_some() {
-                initialize_response = Some(message.clone());
+                // initialize_response = Some(message.clone());
                 break;
             }
         }
@@ -688,7 +688,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
                 // Wait for and process response
                 let mut found_response = false;
-                let mut current_goals_json = serde_json::Value::Null;
+                // let current_goals_json = serde_json::Value::Null;
 
                 while let Ok(message) = rx.recv_timeout(std::time::Duration::from_secs(5)) {
                     if let Some(id) = message.get("id") {

@@ -1,0 +1,22 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in library 'main_midi'",
+            "cargo": {
+                "args": [
+                    "run",
+                    "--bin",
+                    "main_midi", 
+
+                ],
+            },
+            "args": ["test.v",
+                    "--midi-device",
+                    "-1"],
+            "cwd": "${workspaceFolder}"
+        }
+    ]
+}

@@ -87,7 +87,7 @@ fn extract_proof_steps(coq_content: &str) -> Vec<(usize, String)> {
         }
         
         if trimmed == "Qed." || trimmed == "Defined." || trimmed.starts_with("Qed") || trimmed.starts_with("Defined") {
-            in_proof = false;
+            // in_proof = false;
             break;
         }
         
@@ -223,11 +223,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     send_request(&mut lsp_stdin, 1, "initialize", &init_params)?;
 
     // Wait for initialize response
-    let mut initialize_response = None;
+    // let mut initialize_response = None;
     while let Ok(message) = rx.recv() {
         if let Some(id) = message.get("id") {
             if id.as_u64() == Some(1) && message.get("result").is_some() {
-                initialize_response = Some(message.clone());
+                // initialize_response = Some(message.clone());
                 break;
             }
         }
@@ -416,7 +416,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
                 // Wait for and process response
                 let mut found_response = false;
-                let mut current_goals_json = serde_json::Value::Null;
+                // let mut current_goals_json = serde_json::Value::Null;
 
                 while let Ok(message) = rx.recv_timeout(std::time::Duration::from_secs(5)) {
                     if let Some(id) = message.get("id") {
@@ -424,7 +424,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                             if let Some(result) = message.get("result") {
                                 println!("State after executing '{}':", line_text);
                                 display_goals(result);
-                                current_goals_json = result.clone();
+                                // current_goals_json = result.clone();
 
                                 // Process this proof state to MIDI
                                 process_goals_to_midi(current_step + 1, line_text, result);

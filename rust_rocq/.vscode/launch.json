@@ -10,12 +10,13 @@
                     "run",
                     "--bin",
                     "main_midi", 
-
                 ],
             },
-            "args": ["test.v",
-                    "--midi-device",
-                    "-1"],
+            "args": [
+                "test.v",
+                "--midi-device",
+                "-1"
+            ],
             "cwd": "${workspaceFolder}"
         }
     ]

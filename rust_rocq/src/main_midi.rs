@@ -270,12 +270,26 @@ fn play_harmonic_context(midi_output: &mut MidiOutput, goals_json: &serde_json::
     // Check for error messages - play dissonant clusters
     if let Some(messages) = goals_json.get("messages") {
         if let Some(messages_array) = messages.as_array() {
-            if !messages_array.is_empty() {
-                println!("[MIDI] Error detected - playing dissonant cluster!");
-                play_dissonant_cluster(midi_output, base_pitch);
+            for message in messages_array {
+                let msg_text = text_of_message(message);
+                if msg_text.contains("error") || msg_text.contains("Error") {
+                    println!("[MIDI] Error detected - playing dissonant cluster!");
+                    play_dissonant_cluster(midi_output, base_pitch);        
+                }
             }
         }
     }
+}
+
+fn text_of_message(message: &Value) -> String {
+    let msg_text = if let Some(text) = message.get("text") {
+        text.as_str().unwrap_or(&text.to_string()).to_string()
+    } else if let Some(s) = message.as_str() {
+        s.to_string()
+    } else {
+        message.to_string()
+    };
+    msg_text
 }
 
 // Play a chord with given intervals
@@ -321,6 +335,7 @@ fn extract_proof_steps(coq_content: &str) -> Vec<(usize, String)> {
     let lines: Vec<&str> = coq_content.lines().collect();
     let mut proof_steps = Vec::new();
     // let mut in_proof = false;
+    // let _ = run_with_gui(lines.clone().into_iter().map(String::from).collect());
     
     for (line_num, line) in lines.iter().enumerate() {
         let trimmed = line.trim();
@@ -344,6 +359,7 @@ fn extract_proof_steps(coq_content: &str) -> Vec<(usize, String)> {
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+
     env_logger::init();
     
     let args = Args::parse();
@@ -487,6 +503,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("\nCoq proof to step through:");
     let lines: Vec<&str> = coq_file.lines().collect();
+
     for (i, line) in lines.iter().enumerate() {
         println!("{:2}: {}", i, line);
     }
@@ -555,7 +572,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         if let Some(id) = message.get("id") {
             if id.as_u64() == Some(99) {
                 if let Some(result) = message.get("result") {
-                    display_goals(result);
+                    println!("{}", format_goals(result));
                     initial_goals_json = result.clone();
 
                     // Process initial state to MIDI
@@ -695,7 +712,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                         if id.as_u64() == Some(100 + current_step as u64) {
                             if let Some(result) = message.get("result") {
                                 println!("State after executing '{}':", line_text);
-                                display_goals(result);
+                                println!("{}", format_goals(result));
                                 
                                 // Store the current goals state for replay
                                 last_goals_state = result.clone();
@@ -801,76 +818,66 @@ fn send_notification(
 }
 
 // Function to display goals in a readable format based on the documentation
-fn display_goals(result: &serde_json::Value) {
+// TODO 1: 
+// rocq proof thigns to show up in right order 
+// get these to show up on gui. 
+// return a string that gets put on the gui, along with a pointer to where 
+// in the proof we are
+use serde_json::Value;
+
+pub fn format_goals(result: &Value) -> String {
+    let mut output = String::new();
+
     // Check if there are any goals
     if let Some(goals_config) = result.get("goals") {
         // Display foreground goals
         if let Some(goals) = goals_config.get("goals") {
             if let Some(goals_array) = goals.as_array() {
                 if goals_array.is_empty() {
-                    println!("No active goals.");
+                    output.push_str("No active goals.\n");
                 } else {
-                    println!("Active goals:");
                     for (i, goal) in goals_array.iter().enumerate() {
-                        println!("Goal {}:", i + 1);
+                        output.push_str(&format!("================= Goal {} =================\n", i + 1));
 
                         // Display hypotheses
                         if let Some(hyps) = goal.get("hyps") {
                             if let Some(hyps_array) = hyps.as_array() {
-                                if !hyps_array.is_empty() {
-                                    println!("  Hypotheses:");
-                                    for hyp in hyps_array {
-                                        // Extract hypothesis name(s)
-                                        let names = if let Some(names) = hyp.get("names") {
-                                            if let Some(names_array) = names.as_array() {
-                                                let name_strings: Vec<String> = names_array
-                                                    .iter()
-                                                    .map(|n| {
-                                                        if let Some(s) = n.as_str() {
-                                                            s.to_string()
-                                                        } else {
-                                                            n.to_string()
-                                                        }
-                                                    })
-                                                    .collect();
-                                                name_strings.join(", ")
-                                            } else {
-                                                names.to_string()
-                                            }
+                                for hyp in hyps_array {
+                                    // Extract hypothesis name(s)
+                                    let names = if let Some(names) = hyp.get("names") {
+                                        if let Some(names_array) = names.as_array() {
+                                            names_array
+                                                .iter()
+                                                .filter_map(|n| n.as_str().map(|s| s.to_string()))
+                                                .collect::<Vec<String>>()
+                                                .join(", ")
                                         } else {
-                                            "".to_string()
-                                        };
+                                            names.to_string()
+                                        }
+                                    } else {
+                                        "".to_string()
+                                    };
 
-                                        // Extract hypothesis type
-                                        let ty_str = if let Some(ty) = hyp.get("ty") {
-                                            if let Some(s) = ty.as_str() {
-                                                s.to_string()
-                                            } else {
-                                                ty.to_string()
-                                            }
-                                        } else {
-                                            "".to_string()
-                                        };
+                                    // Extract hypothesis type
+                                    let ty_str = if let Some(ty) = hyp.get("ty") {
+                                        ty.as_str().unwrap_or(&ty.to_string()).to_string()
+                                    } else {
+                                        "".to_string()
+                                    };
 
-                                        println!("    {}: {}", names, ty_str);
-                                    }
+                                    output.push_str(&format!("{:<12}: {}\n", names, ty_str));
                                 }
                             }
                         }
 
                         // Display goal type
                         let ty_str = if let Some(ty) = goal.get("ty") {
-                            if let Some(s) = ty.as_str() {
-                                s.to_string()
-                            } else {
-                                ty.to_string()
-                            }
+                            ty.as_str().unwrap_or(&ty.to_string()).to_string()
                         } else {
                             "".to_string()
                         };
 
-                        println!("  Goal: {}", ty_str);
-                        println!();
+                        output.push_str(&format!("\n-------------------------------------------\n{}\n\n", ty_str));
                     }
                 }
             }
@@ -880,21 +887,16 @@ fn display_goals(result: &serde_json::Value) {
         if let Some(shelf) = goals_config.get("shelf") {
             if let Some(shelf_array) = shelf.as_array() {
                 if !shelf_array.is_empty() {
-                    println!("Shelved goals:");
+                    output.push_str("Shelved goals:\n");
                     for (i, goal) in shelf_array.iter().enumerate() {
-                        println!("Shelved goal {}:", i + 1);
                         let ty_str = if let Some(ty) = goal.get("ty") {
-                            if let Some(s) = ty.as_str() {
-                                s.to_string()
-                            } else {
-                                ty.to_string()
-                            }
+                            ty.as_str().unwrap_or(&ty.to_string()).to_string()
                         } else {
                             "".to_string()
                         };
-                        println!("  {}", ty_str);
+                        output.push_str(&format!("  [{}] {}\n", i + 1, ty_str));
                     }
-                    println!();
+                    output.push('\n');
                 }
             }
         }
@@ -903,53 +905,454 @@ fn display_goals(result: &serde_json::Value) {
         if let Some(given_up) = goals_config.get("given_up") {
             if let Some(given_up_array) = given_up.as_array() {
                 if !given_up_array.is_empty() {
-                    println!("Given up goals:");
+                    output.push_str("Given up goals:\n");
                     for (i, goal) in given_up_array.iter().enumerate() {
-                        println!("Given up goal {}:", i + 1);
                         let ty_str = if let Some(ty) = goal.get("ty") {
-                            if let Some(s) = ty.as_str() {
-                                s.to_string()
-                            } else {
-                                ty.to_string()
-                            }
+                            ty.as_str().unwrap_or(&ty.to_string()).to_string()
                         } else {
                             "".to_string()
                         };
-                        println!("  {}", ty_str);
+                        output.push_str(&format!("  [{}] {}\n", i + 1, ty_str));
                     }
-                    println!();
+                    output.push('\n');
                 }
             }
         }
     } else {
         // If no goals, just print the raw response
-        println!(
-            "{}",
-            serde_json::to_string_pretty(result).unwrap_or_default()
-        );
+        output.push_str(&serde_json::to_string_pretty(result).unwrap_or_default());
+        output.push('\n');
     }
 
     // Display any messages
     if let Some(messages) = result.get("messages") {
         if let Some(messages_array) = messages.as_array() {
             if !messages_array.is_empty() {
-                println!("Messages:");
+                output.push_str("Messages:\n");
                 for message in messages_array {
                     let msg_text = if let Some(text) = message.get("text") {
-                        if let Some(s) = text.as_str() {
-                            s.to_string()
-                        } else {
-                            text.to_string()
-                        }
+                        text.as_str().unwrap_or(&text.to_string()).to_string()
                     } else if let Some(s) = message.as_str() {
                         s.to_string()
                     } else {
                         message.to_string()
                     };
-                    println!("  {}", msg_text);
+                    output.push_str(&format!("  {}\n", msg_text));
                 }
-                println!();
+                output.push('\n');
             }
         }
     }
+
+    output
+}
+
+
+
+// Cargo.toml dependencies needed:
+// [dependencies]
+// eframe = "0.24"
+// egui = "0.24"
+// rand = "0.8"
+// winit = "0.28"
+
+use eframe::egui;
+use egui::{Color32, FontId, Pos2, Rect, Stroke, Vec2};
+use rand::Rng;
+use std::time::Instant;
+
+#[derive(Clone)]
+struct TreePattern {
+    origin: Pos2,
+    branches: Vec<Branch>,
+    color: Color32,
+    birth_time: Instant,
+    life_duration: Duration,
+}
+
+#[derive(Clone)]
+struct Branch {
+    start: Pos2,
+    end: Pos2,
+    thickness: f32,
+    children: Vec<Branch>,
+}
+
+#[derive(Clone)]
+struct FlickerMessage {
+    text: String,
+    start_time: Instant,
+    duration: Duration,
+}
+
+pub struct RocqVisualizer {
+    // Proof text management
+    proof_lines: Vec<String>,
+    current_line_index: usize,
+    visible_lines: usize,
+    
+    // Visual effects
+    tree_patterns: Vec<TreePattern>,
+    flicker_message: Option<FlickerMessage>,
+    
+    // Input handling
+    last_frame_keys: std::collections::HashSet<egui::Key>,
+    
+    // Animation
+    last_update: Instant,
+}
+
+impl Default for RocqVisualizer {
+    fn default() -> Self {
+        Self {
+            proof_lines: generate_sample_proof(),
+            current_line_index: 0,
+            visible_lines: 10,
+            tree_patterns: Vec::new(),
+            flicker_message: None,
+            last_frame_keys: std::collections::HashSet::new(),
+            last_update: Instant::now(),
+        }
+    }
+}
+
+impl RocqVisualizer {
+    pub fn new(proof: Vec<String>, _cc: &eframe::CreationContext<'_>) -> Self {
+        Self {
+            proof_lines: proof,
+            current_line_index: 0,
+            visible_lines: 10,
+            tree_patterns: Vec::new(),
+            flicker_message: None,
+            last_frame_keys: std::collections::HashSet::new(),
+            last_update: Instant::now(),
+        }
+    }
+
+    fn handle_input(&mut self, ctx: &egui::Context) {
+        let input = ctx.input(|i| i.clone());
+        let current_keys: std::collections::HashSet<egui::Key> = input.keys_down.clone();
+        
+        // Check for newly pressed keys (not held from last frame)
+        for key in &current_keys {
+            if !self.last_frame_keys.contains(key) {
+                match key {
+                    egui::Key::ArrowDown => {
+                        if self.current_line_index < self.proof_lines.len().saturating_sub(1) {
+                            self.current_line_index += 1;
+                            self.spawn_tree_pattern(ctx);
+                            // TODO 2: lsp update via display functions
+                        }
+                    }
+                    egui::Key::A => {
+                        self.show_flicker_message("THEY RENAMED COQ SO WE COULD ROCQ".to_string());
+                    }
+                    egui::Key::S => {
+                        self.show_flicker_message("RAISE THE (P)ROOF".to_string());
+                    }
+                    egui::Key::D => {
+                        self.show_flicker_message("THE SOUND OF SOUNDNESS".to_string());
+                    }
+                    egui::Key::F => {
+                        self.show_flicker_message("Frank Pfenning".to_string());
+                    }
+                    _ => {}
+                }
+            }
+        }
+        
+        self.last_frame_keys = current_keys;
+    }
+
+    fn show_flicker_message(&mut self, text: String) {
+        self.flicker_message = Some(FlickerMessage {
+            text,
+            start_time: Instant::now(),
+            duration: Duration::from_secs(2),
+        });
+    }
+
+    fn spawn_tree_pattern(&mut self, ctx: &egui::Context) {
+        let screen_rect = ctx.screen_rect();
+        let mut rng = rand::thread_rng();
+        
+        let origin = Pos2::new(
+            rng.gen_range(screen_rect.width() * 0.3..screen_rect.width() * 0.9),
+            rng.gen_range(screen_rect.height() * 0.3..screen_rect.height() * 0.9),
+        );
+        
+        let color = Color32::from_rgb(
+            rng.gen_range(100..255),
+            rng.gen_range(100..255),
+            rng.gen_range(100..255),
+        );
+        
+        let tree = TreePattern {
+            origin,
+            branches: self.generate_tree_branches(origin, 5, 80.0),
+            color,
+            birth_time: Instant::now(),
+            life_duration: Duration::from_secs_f32(rng.gen_range(3.0..6.0)),
+        };
+        
+        self.tree_patterns.push(tree);
+    }
+
+    fn generate_tree_branches(&self, start: Pos2, depth: u32, length: f32) -> Vec<Branch> {
+        if depth == 0 || length < 10.0 {
+            return Vec::new();
+        }
+        
+        let mut rng = rand::thread_rng();
+        let mut branches = Vec::new();
+        
+        let num_branches = rng.gen_range(2..5);
+        
+        for _ in 0..num_branches {
+            let angle = rng.gen_range(0.0..std::f32::consts::TAU);
+            let branch_length = length * rng.gen_range(0.6..0.9);
+            
+            let end = Pos2::new(
+                start.x + angle.cos() * branch_length,
+                start.y + angle.sin() * branch_length,
+            );
+            
+            let children = self.generate_tree_branches(end, depth - 1, branch_length * 0.7);
+            
+            branches.push(Branch {
+                start,
+                end,
+                thickness: length * 0.05,
+                children,
+            });
+        }
+        
+        branches
+    }
+
+    fn draw_branch(&self, painter: &egui::Painter, branch: &Branch, alpha: f32, base_color: Color32) {
+        let color = Color32::from_rgba_premultiplied(
+            base_color.r(),
+            base_color.g(),
+            base_color.b(),
+            (alpha * 255.0) as u8,
+        );
+        
+        painter.line_segment(
+            [branch.start, branch.end],
+            Stroke::new(branch.thickness, color),
+        );
+        
+        for child in &branch.children {
+            self.draw_branch(painter, child, alpha, base_color);
+        }
+    }
+
+    fn update_animations(&mut self) {
+        let now = Instant::now();
+        
+        // Remove expired tree patterns
+        self.tree_patterns.retain(|tree| {
+            now.duration_since(tree.birth_time) < tree.life_duration
+        });
+        
+        // Remove expired flicker message
+        if let Some(ref flicker) = self.flicker_message {
+            if now.duration_since(flicker.start_time) > flicker.duration {
+                self.flicker_message = None;
+            }
+        }
+    }
+
+    fn render_proof_text(&self, ctx: &egui::Context) {
+        let screen_rect = ctx.screen_rect();
+        let proof_area = Rect::from_min_size(
+            Pos2::new(20.0, 20.0),
+            Vec2::new(400.0, 300.0),
+        );
+        
+        let painter = ctx.layer_painter(egui::LayerId::new(egui::Order::Foreground, egui::Id::new("proof_text")));
+        
+        let start_line = self.current_line_index.saturating_sub(self.visible_lines / 2);
+        let end_line = (start_line + self.visible_lines).min(self.proof_lines.len());
+        
+        for (i, line_idx) in (start_line..end_line).enumerate() {
+            let y_offset = i as f32 * 20.0;
+            let pos = Pos2::new(proof_area.min.x, proof_area.min.y + y_offset);
+            
+            let color = if line_idx == self.current_line_index {
+                Color32::from_rgb(255, 255, 100) // Highlight current line
+            } else {
+                Color32::from_rgb(200, 200, 200)
+            };
+            
+            painter.text(
+                pos,
+                egui::Align2::LEFT_TOP,
+                &self.proof_lines[line_idx],
+                FontId::monospace(12.0),
+                color,
+            );
+        }
+    }
+
+    fn render_tree_patterns(&self, ctx: &egui::Context) {
+        let painter = ctx.layer_painter(egui::LayerId::new(egui::Order::Background, egui::Id::new("tree_patterns")));
+        let now = Instant::now();
+        
+        for tree in &self.tree_patterns {
+            let elapsed = now.duration_since(tree.birth_time).as_secs_f32();
+            let life_ratio = elapsed / tree.life_duration.as_secs_f32();
+            
+            // Fade in and out
+            let alpha = if life_ratio < 0.2 {
+                life_ratio / 0.2 // Fade in
+            } else if life_ratio > 0.8 {
+                (1.0 - life_ratio) / 0.2 // Fade out
+            } else {
+                1.0
+            };
+            
+            for branch in &tree.branches {
+                self.draw_branch(&painter, branch, alpha, tree.color);
+            }
+        }
+    }
+
+    fn render_flicker_message(&self, ctx: &egui::Context) {
+        if let Some(ref flicker) = self.flicker_message {
+            let elapsed = Instant::now().duration_since(flicker.start_time).as_secs_f32();
+            let flicker_frequency = 10.0; // Hz
+            
+            // Create flickering effect
+            if (elapsed * flicker_frequency).sin() > 0.0 {
+                let screen_rect = ctx.screen_rect();
+                let painter = ctx.layer_painter(egui::LayerId::new(egui::Order::Tooltip, egui::Id::new("flicker_message")));
+                
+                let text_size = 48.0;
+                let font = FontId::proportional(text_size);
+                
+                // Calculate text size for centering
+                let galley = painter.layout_no_wrap(
+                    flicker.text.clone(),
+                    font.clone(),
+                    Color32::WHITE,
+                );
+                
+                let text_rect = Rect::from_min_size(
+                    Pos2::new(
+                        screen_rect.center().x - galley.size().x / 2.0,
+                        screen_rect.center().y - galley.size().y / 2.0,
+                    ),
+                    galley.size(),
+                );
+                
+                // Draw background box
+                painter.rect_filled(
+                    text_rect.expand(20.0),
+                    10.0,
+                    Color32::from_rgba_unmultiplied(0, 0, 0, 200),
+                );
+                
+                painter.rect_stroke(
+                    text_rect.expand(20.0),
+                    10.0,
+                    Stroke::new(2.0, Color32::WHITE),
+                );
+                
+                // Draw text
+                painter.text(
+                    text_rect.center(),
+                    egui::Align2::CENTER_CENTER,
+                    &flicker.text,
+                    font,
+                    Color32::WHITE,
+                );
+            }
+        }
+    }
+}
+
+impl eframe::App for RocqVisualizer {
+    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        // Set black background
+        ctx.set_visuals(egui::Visuals {
+            panel_fill: Color32::BLACK,
+            window_fill: Color32::BLACK,
+            ..egui::Visuals::dark()
+        });
+        
+        self.handle_input(ctx);
+        self.update_animations();
+        
+        // Create a full-screen central panel
+        egui::CentralPanel::default()
+            .frame(egui::Frame::none().fill(Color32::BLACK))
+            .show(ctx, |ui| {
+                // Make the UI area cover the entire screen
+                ui.expand_to_include_rect(ctx.screen_rect());
+            });
+        
+        // Render all visual elements
+        self.render_tree_patterns(ctx);
+        self.render_proof_text(ctx);
+        self.render_flicker_message(ctx);
+        
+        // Request continuous repainting for animations
+        ctx.request_repaint();
+    }
+}
+
+fn generate_sample_proof() -> Vec<String> {
+    vec![
+        "Theorem plus_comm : forall n m : nat, n + m = m + n.".to_string(),
+        "Proof.".to_string(),
+        "  intros n m.".to_string(),
+        "  induction n as [| n' IHn'].".to_string(),
+        "  - (* n = 0 *)".to_string(),
+        "    simpl.".to_string(),
+        "    rewrite <- plus_n_O.".to_string(),
+        "    reflexivity.".to_string(),
+        "  - (* n = S n' *)".to_string(),
+        "    simpl.".to_string(),
+        "    rewrite IHn'.".to_string(),
+        "    rewrite plus_n_Sm.".to_string(),
+        "    reflexivity.".to_string(),
+        "Qed.".to_string(),
+        "".to_string(),
+        "Theorem mult_comm : forall n m : nat, n * m = m * n.".to_string(),
+        "Proof.".to_string(),
+        "  intros n m.".to_string(),
+        "  induction n as [| n' IHn'].".to_string(),
+        "  - (* n = 0 *)".to_string(),
+        "    simpl.".to_string(),
+        "    rewrite <- mult_n_O.".to_string(),
+        "    reflexivity.".to_string(),
+        "  - (* n = S n' *)".to_string(),
+        "    simpl.".to_string(),
+        "    rewrite IHn'.".to_string(),
+        "    rewrite mult_n_Sm.".to_string(),
+        "    rewrite plus_comm.".to_string(),
+        "    reflexivity.".to_string(),
+        "Qed.".to_string(),
+    ]
+}
+
+fn run_with_gui(proof: Vec<String>) -> Result<(), eframe::Error> {
+    let options = eframe::NativeOptions {
+        viewport: egui::ViewportBuilder::default()
+            .with_inner_size([1200.0, 800.0])
+            .with_title("RocqNRoll")
+            .with_decorations(false) // Remove window decorations for full-screen feel
+            .with_fullscreen(true)
+            .with_resizable(true),
+            // centered: true,
+        ..Default::default()
+    };
+    
+    eframe::run_native(
+        "Rocq Proof Visualizer",
+        options,
+        Box::new(|cc| Box::new(RocqVisualizer::new(proof, cc))),
+    )
 }

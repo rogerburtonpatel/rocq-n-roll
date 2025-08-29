@@ -1,0 +1,13 @@
+DIGEST 918ca454aaaf6c93cc13101f32af2261
+Ftest
+R15:29 Stdlib.Arith.Arith <> <> lib
+prf 41:50 <> simple_add
+R65:67 Corelib.Init.Datatypes <> nat ind
+binder 61:61 <> n:1
+R75:77 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R71:73 Corelib.Init.Peano <> ::nat_scope:x_'+'_x not
+R70:70 test <> n:1 var
+R78:78 test <> n:1 var
+R122:129 Corelib.Init.Peano <> plus_n_O thm
+R122:129 Corelib.Init.Peano <> plus_n_O thm
+R122:129 Corelib.Init.Peano <> plus_n_O thm

@@ -1,3 +1,4 @@
+use clap::builder::Str;
 use clap::Parser;
 use serde_json::json;
 use std::fs;
@@ -528,4 +529,30 @@ fn send_notification(
     stdin.flush()?;
 
     Ok(())
+}
+
+fn request_lsp(curr_step : i64) -> (Vec<String>, Vec<String>) {
+    (todo!(), todo!())
+}
+
+fn step() {
+    // (what_ran, new_proof_state) = request from lsp 
+    // 
+    let proof = todo!(); 
+    let what_ran = todo!();
+    let goals = todo!();
+    let mut curr_step = 0; 
+    let proof_not_over = false;
+    while proof_not_over {
+        disp(&proof, curr_step, &what_ran, &goals);
+        play(&what_ran);
+        curr_step += 1;
+    }
+}
+
+fn disp(proof : &String, curr_step : i64, what_ran : &Vec<String>, goals : &Vec<String>) {
+    // request 
+}
+fn play(what_ran : &Vec<String>) {
+
 }

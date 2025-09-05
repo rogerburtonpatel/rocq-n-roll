@@ -23,6 +23,8 @@ struct Args {
     midi_device: Option<i32>,
     #[arg(long, help = "Play entire proof automatically with delays")]
     auto_play: bool,
+    #[arg(long, help = "Debug mode: Print full response output with each command.")]
+    debug: bool
 }
 
 static CHANNEL: u8 = 0;
@@ -335,7 +337,7 @@ fn extract_proof_steps(coq_content: &str) -> Vec<(usize, String)> {
     let lines: Vec<&str> = coq_content.lines().collect();
     let mut proof_steps = Vec::new();
     // let mut in_proof = false;
-    // let _ = run_with_gui(lines.clone().into_iter().map(String::from).collect());
+    let _ = run_with_gui(lines.clone().into_iter().map(String::from).collect());
     
     for (line_num, line) in lines.iter().enumerate() {
         let trimmed = line.trim();
@@ -572,7 +574,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         if let Some(id) = message.get("id") {
             if id.as_u64() == Some(99) {
                 if let Some(result) = message.get("result") {
-                    println!("{}", format_goals(result));
+                    println!("{}", format_goals(result, args.debug));
                     initial_goals_json = result.clone();
 
                     // Process initial state to MIDI
@@ -712,7 +714,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                         if id.as_u64() == Some(100 + current_step as u64) {
                             if let Some(result) = message.get("result") {
                                 println!("State after executing '{}':", line_text);
-                                println!("{}", format_goals(result));
+                                println!("{}", format_goals(result, args.debug));
                                 
                                 // Store the current goals state for replay
                                 last_goals_state = result.clone();
@@ -825,7 +827,7 @@ fn send_notification(
 // in the proof we are
 use serde_json::Value;
 
-pub fn format_goals(result: &Value) -> String {
+pub fn format_goals(result: &Value, debug: bool) -> String {
     let mut output = String::new();
 
     // Check if there are any goals
@@ -842,9 +844,9 @@ pub fn format_goals(result: &Value) -> String {
         if let Some(given_up) = goals_config.get("given_up") {
             format_given_up_goals(&mut output, given_up);
         }
-    } else {
-        // If no goals, just print the raw response
-        output.push_str("Displaying raw response: \n");
+    } else 
+    if debug {
+        output.push_str("Raw Response:\n");
         output.push_str(&serde_json::to_string_pretty(result).unwrap_or_default());
         output.push('\n');
     }
@@ -860,7 +862,6 @@ pub fn format_goals(result: &Value) -> String {
 fn format_messages(output: &mut String, messages: &Value) {
     if let Some(messages_array) = messages.as_array() {
         if !messages_array.is_empty() {
-            output.push_str("Messages:\n");
             for message in messages_array {
                 let msg_text = if let Some(text) = message.get("text") {
                     text.as_str().unwrap_or(&text.to_string()).to_string()

@@ -1,8 +1,7 @@
 use clap::Parser;
 use serde_json::json;
-use std::collections::HashMap;
 use std::fs;
-use std::io::{self, BufRead, BufReader, ErrorKind, Read, Write};
+use std::io::{self, BufRead, BufReader, Read, Write};
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
 use std::sync::mpsc;
@@ -14,7 +13,7 @@ mod midi;
 mod gui;
 mod formatting;
 
-use midi::{MidiOutput, create_tactic_midi_map, process_tactic_to_midi, play_proof_sequence};
+use midi::{MidiOutput, process_tactic_to_midi, play_proof_sequence};
 use gui::run_with_gui;
 use formatting::format_goals;
 
@@ -96,16 +95,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     {
         Ok(child) => child,
         Err(e) => {
+            // common error, helps to debug 
             if let Some(2) = e.raw_os_error() {
-                panic!("Error: coq-lsp executable not found (OS error 2).");
+                eprintln!("Error: coq-lsp executable not found (OS error 2). Did you run `opam install coq-lsp?`");
+                return Err(Box::new(e));        
             }
-            
-            match e.kind() {
-                _ => {
-                    eprintln!("Error spawning coq-lsp process: {}", e);
-                    return Err(Box::new(e));
-                }
-            }
+        // generic error reporting 
+        eprintln!("Error spawning coq-lsp process: {}", e);
+        return Err(Box::new(e));
         }
     };
 

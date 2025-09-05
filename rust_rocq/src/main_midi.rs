@@ -2,7 +2,7 @@ use clap::Parser;
 use serde_json::json;
 use std::collections::HashMap;
 use std::fs;
-use std::io::{self, BufRead, BufReader, Read, Write};
+use std::io::{self, BufRead, BufReader, ErrorKind, Read, Write};
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
 use std::sync::mpsc;
@@ -337,7 +337,7 @@ fn extract_proof_steps(coq_content: &str) -> Vec<(usize, String)> {
     let lines: Vec<&str> = coq_content.lines().collect();
     let mut proof_steps = Vec::new();
     // let mut in_proof = false;
-    let _ = run_with_gui(lines.clone().into_iter().map(String::from).collect());
+    // let _ = run_with_gui(lines.clone().into_iter().map(String::from).collect());
     
     for (line_num, line) in lines.iter().enumerate() {
         let trimmed = line.trim();
@@ -383,11 +383,26 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut midi_output = MidiOutput::new(args.midi_device)?;
 
     // Start the Coq LSP process
-    let mut coq_lsp = Command::new("coq-lsp")
+    
+    let mut coq_lsp = match Command::new("coq-lsp")
         .stdout(Stdio::piped())
         .stdin(Stdio::piped())
         .stderr(Stdio::piped())
-        .spawn()?;
+        .spawn()
+    {
+        Ok(child) => child,
+        Err(e) => {
+            match e.kind() {
+                ErrorKind::NotFound => {
+                    panic!("Error: coq-lsp executable not found. Please ensure it's installed and in your PATH.");
+                },
+                _ => {
+                    eprintln!("Error spawning coq-lsp process: {}", e);
+                    return Err(Box::new(e));
+                }
+            }
+        }
+    };
 
     // Set up communication channels
     let mut lsp_stdin = coq_lsp.stdin.take().expect("Failed to open stdin");
@@ -707,7 +722,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
                 // Wait for and process response
                 let mut found_response = false;
-                // let current_goals_json = serde_json::Value::Null;
+                let current_goals_json = serde_json::Value::Null;
 
                 while let Ok(message) = rx.recv_timeout(std::time::Duration::from_secs(5)) {
                     if let Some(id) = message.get("id") {
@@ -740,7 +755,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 println!("\n{}\n", "-".repeat(60));
 
                 // Stop previous notes before moving to next step
-              //  midi_output.stop_all_notes();
+                // midi_output.stop_all_notes();
 
                 // Move to the next step
                 current_step += 1;

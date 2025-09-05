@@ -55,7 +55,7 @@ impl MidiOutput {
                     data2: velocity,
                     data3: 0,
                 };
-                
+
                 if let Err(e) = port.write_message(note_on) {
                     eprintln!("MIDI error: {}", e);
                     return;
@@ -302,7 +302,7 @@ pub fn play_proof_sequence(proof_steps: &[(usize, String)], midi_output: &mut Mi
         
         // Play note for 800ms with 200ms gap
         midi_output.play_note(pitch, velocity, Some(Duration::from_millis(800)));
-        thread::sleep(Duration::from_millis(10000));
+        thread::sleep(Duration::from_millis(200));
     }
     
     println!("[MIDI] Proof sequence complete!");

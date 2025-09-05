@@ -69,7 +69,6 @@ fn extract_proof_steps(coq_content: &str) -> Vec<(usize, String)> {
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     env_logger::init();
-    
     let args = Args::parse();
     
     // Validate file extension
@@ -253,7 +252,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("No proof steps found in the file. Make sure the file contains a proof with 'Proof.' and 'Qed.' markers.");
         return Ok(());
     }
-
+    
     // Auto-play mode: play entire sequence with delays
     if args.auto_play {
         play_proof_sequence(&proof_lines, &mut midi_output);

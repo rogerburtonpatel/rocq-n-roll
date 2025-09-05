@@ -20,5 +20,5 @@ portmidi = "0.3"
 regex = "1.0"
 
 [[bin]]
-name = "main_midi"
-path = "src/main_midi.rs"
+name = "rust_rocq"
+path = "src/rust_rocq.rs"

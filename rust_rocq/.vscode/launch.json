@@ -4,12 +4,12 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug unit tests in library 'main_midi'",
+            "name": "Debug unit tests in library 'rust_rocq'",
             "cargo": {
                 "args": [
                     "run",
                     "--bin",
-                    "main_midi", 
+                    "rust_rocq", 
                 ],
             },
             "args": [

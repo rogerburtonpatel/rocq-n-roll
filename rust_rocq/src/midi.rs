@@ -107,11 +107,13 @@ impl MidiOutput {
         }
     }
     
-    pub fn stop_all_notes(&self) {
+    pub fn stop_all_notes(&self, after_delay: Option<Duration>) {
         if !self.enabled {
             return;
         }
-        
+        if let Some(delay) = after_delay {
+            thread::sleep(delay);
+        }
         // Send all notes off on this channel
         for note in 0..128 {
             self.stop_note(note);

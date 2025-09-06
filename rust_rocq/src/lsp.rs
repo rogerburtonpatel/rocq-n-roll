@@ -1,6 +1,6 @@
 use serde_json::json;
 use std::io::{BufRead, BufReader, Read, Write};
-use std::process::{Child, ChildStdin, Stdio};
+use std::process::{ChildStdin, Stdio};
 use std::sync::mpsc::{self, Receiver};
 use std::thread;
 use std::time::Duration;
@@ -9,7 +9,6 @@ pub const INIT: u64 = 1;
 pub const COQ_LSP_STEP_OFFSET: u64 = 100;
 
 pub struct RocqLSP {
-    child: Child,
     stdin: ChildStdin,
     rx: Receiver<serde_json::Value>,
     pub lsp_position_offset: usize,
@@ -70,7 +69,6 @@ impl RocqLSP {
         });
 
         Ok(Self {
-            child,
             stdin,
             rx,
             lsp_position_offset: 0,

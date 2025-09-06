@@ -1,3 +1,8 @@
+// TODOS: 
+// clean up rest of constants & magic nums 
+// lsp to gui 
+// midi off fade out- stop_all_notes
+
 use clap::Parser;
 use serde_json::json;
 use std::fs;
@@ -126,7 +131,6 @@ fn handle_explain(state: &mut ProofStepperState) -> bool {
 
 fn handle_replay(state: &mut ProofStepperState) -> bool {
     println!("\nReplaying current note...");
-    state.midi_output.stop_all_notes();
     let last_goals_state = state.last_goals_state.clone();
     
     if state.last_goals_state != serde_json::Value::Null {
@@ -142,7 +146,7 @@ fn handle_replay(state: &mut ProofStepperState) -> bool {
 
 fn handle_reset(state: &mut ProofStepperState) -> bool {
     println!("\nResetting to beginning of proof...");
-    state.midi_output.stop_all_notes();
+    state.midi_output.stop_all_notes(None);
     state.reset();
     state.rocq_lsp.lsp_position_offset = 0;
     false
@@ -496,8 +500,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Cleanup
     let close_params = json!({ "textDocument": { "uri": document_uri } });
     state.rocq_lsp.send_notification("textDocument/didClose", &close_params)?;
-    state.midi_output.stop_all_notes();
-
     println!("Proof session ended.");
+    println!("Press any key to stop all notes and exit.");
+
+    std::io::BufRead::read_line(&mut stdin.lock(), &mut user_input)?;
+    
+    state.midi_output.stop_all_notes(None);
+
     Ok(())
 }

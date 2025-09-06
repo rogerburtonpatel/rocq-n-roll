@@ -130,7 +130,7 @@ impl RocqVisualizer {
         );
         
         let tree = TreePattern {
-            branches: self.generate_tree_branches(origin, 5, 80.0),
+            branches: self.generate_tree_branches(origin, 50, 300.0),
             color,
             birth_time: Instant::now(),
             life_duration: Duration::from_secs_f32(rng.gen_range(3.0..6.0)),

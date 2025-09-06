@@ -46,10 +46,12 @@ pub struct ProofStepperState {
     last_goals_state: serde_json::Value,
     proof_lines: Vec<(usize, String)>,
     lsp_position_offset: usize, // Track offset caused by invisible transitions
+
     // MIDI - would be nice to keep external, but Rust's impl rules demand we 
     // pass it in via RocqVisualizer, which MIDI should _definitely_ not be a 
     // member of. 
     midi_output: MidiOutput,
+    
 }
 
 impl ProofStepperState {
@@ -206,6 +208,7 @@ fn handle_execute_step(
 
     while let Ok(message) = rx.recv_timeout(std::time::Duration::from_secs(5)) {
         if let Some(id) = message.get("id") {
+            const INVIS_STEP_OFFSET: u64 = 1000;
             if id.as_u64() == Some(state.current_step as u64 + COQ_LSP_STEP_OFFSET) {
                 responses_received += 1;
 
@@ -234,7 +237,7 @@ fn handle_execute_step(
 
                     send_request(
                         lsp_stdin,
-                        state.current_step as u64 + COQ_LSP_STEP_OFFSET + 1000, // Different ID
+                        state.current_step as u64 + COQ_LSP_STEP_OFFSET + INVIS_STEP_OFFSET,
                         "proof/goals",
                         &adjusted_goals_params,
                     )?;
@@ -262,7 +265,7 @@ fn handle_execute_step(
                 }
             }
             // Handle the adjusted request response
-            else if id.as_u64() == Some(state.current_step as u64 + COQ_LSP_STEP_OFFSET + 1000) {
+            else if id.as_u64() == Some(state.current_step as u64 + COQ_LSP_STEP_OFFSET + INVIS_STEP_OFFSET) {
                 if let Some(result) = message.get("result") {
                     found_response = true;
 

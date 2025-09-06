@@ -67,9 +67,15 @@ impl RocqVisualizer {
                 match key {
                     egui::Key::ArrowDown => {
                         if self.current_line_index < self.proof_state.proof_lines.len().saturating_sub(1) {
-                            // here we are. 
                             // send request to lsp 
+                            // need:     
+                            // lsp_stdin: &mut std::process::ChildStdin, (tricky- get mut ref in through RocqVisualizer)
+                            // rx: &mpsc::Receiver<serde_json::Value> (same, get ref in through RocqVisualizer),
+                            // document_uri: &str, (not too bad)
+
+
                             // update proof with response 
+
                             // process_tactic_to_midi(midi_output, &line_text, result, None);
                             // 
 

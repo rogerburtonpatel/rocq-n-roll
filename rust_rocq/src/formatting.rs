@@ -3,6 +3,12 @@ use serde_json::Value;
 // Function to display goals in a readable format based on the documentation
 pub fn format_goals(result: &Value, debug: bool) -> String {
     let mut output = String::new();
+    
+    if debug {
+        output.push_str("Raw Response:\n");
+        output.push_str(&serde_json::to_string_pretty(result).unwrap_or_default());
+        output.push('\n');
+    }
 
     // Check if there are any goals
     if let Some(goals_config) = result.get("goals") {
@@ -18,18 +24,12 @@ pub fn format_goals(result: &Value, debug: bool) -> String {
         if let Some(given_up) = goals_config.get("given_up") {
             format_given_up_goals(&mut output, given_up);
         }
-    } else 
-    if debug {
-        output.push_str("Raw Response:\n");
-        output.push_str(&serde_json::to_string_pretty(result).unwrap_or_default());
-        output.push('\n');
     }
 
     // Format any messages
     if let Some(messages) = result.get("messages") {
         format_messages(&mut output, messages);
     }
-
     output
 }
 

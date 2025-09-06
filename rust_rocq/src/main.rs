@@ -1,5 +1,6 @@
 use clap::builder::Str;
 use clap::Parser;
+use log::debug;
 use serde_json::json;
 use std::fs;
 use std::io::{self, BufRead, BufReader, Read, Write};
@@ -31,6 +32,8 @@ struct Args {
     #[arg(long, help = "Debug mode: Print full response output with each command.")]
     debug: bool
 }
+
+const COQ_LSP_STEP_OFFSET: u64 = 100;
 
 // Extract tactic name from a proof line
 fn extract_tactic_name(line: &str) -> String {
@@ -366,7 +369,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 midi_output.stop_all_notes();
                 
                 // Replay the current tactic note
-                if current_step < total_steps {
+                if last_goals_state != serde_json::Value::Null {
                     let (_, current_line_text) = &proof_lines[current_step];
                     // Use the last known goals state for accurate replay
                     process_tactic_to_midi(&mut midi_output, current_line_text, &last_goals_state, Some(Duration::from_millis(2000)));
@@ -416,7 +419,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
                 send_request(
                     &mut lsp_stdin,
-                    100 + current_step as u64,
+                    current_step as u64 + COQ_LSP_STEP_OFFSET,
                     "proof/goals",
                     &goals_params,
                 )?;
@@ -426,8 +429,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
                 while let Ok(message) = rx.recv_timeout(std::time::Duration::from_secs(5)) {
                     if let Some(id) = message.get("id") {
-                        if id.as_u64() == Some(100 + current_step as u64) {
+                        if id.as_u64() == Some(current_step as u64 + COQ_LSP_STEP_OFFSET) {
+                            println!("MESSAGE");
+                            println!("{:#?}", message);
+                            println!("END MESSAGE");
                             if let Some(result) = message.get("result") {
+                                found_response = true;
+
                                 println!("State after executing '{}':", line_text);
                                 println!("{}", format_goals(result, args.debug));
                                 
@@ -437,7 +445,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                                 // Process this proof state to MIDI - hold note until next step
                                 process_tactic_to_midi(&mut midi_output, line_text, result, None);
 
-                                found_response = true;
                                 break;
                             } else if let Some(error) = message.get("error") {
                                 println!("Error: {}", error);

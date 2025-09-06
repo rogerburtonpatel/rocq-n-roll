@@ -151,16 +151,12 @@ fn handle_skip(state: &mut ProofStepperState) -> bool {
     false
 }
 
-// fn handle_midi_test(midi_output: &mut MidiOutput, initial_goals_json: &serde_json::Value) -> bool {
-//     println!("\nGenerating MIDI test for current state...");
-//     if !initial_goals_json.is_null() {
-//         process_tactic_to_midi(midi_output, "MIDI Test", initial_goals_json, Some(Duration::from_millis(2000)));
-//     } else {
-//         println!("No proof state available for MIDI generation");
-//     }
-//     println!("");
-//     false
-// }
+fn handle_midi_test(midi_output: &mut MidiOutput) -> bool {
+    println!("\nTesting MIDI Out: Emitting NOTE ON...");
+            midi_output.play_note(90, 100, Some(Duration::from_millis(1100)));
+    println!("");
+    false 
+}
 
 fn handle_execute_step(
     state: &mut ProofStepperState,
@@ -333,26 +329,54 @@ fn extract_tactic_name(line: &str) -> String {
     }
 }
 
-fn extract_proof_steps(coq_content: &str) -> Vec<(usize, String)> {
-    let lines: Vec<&str> = coq_content.lines().collect();
+pub fn extract_proof_steps(coq_content: &str) -> Vec<(usize, String)> {
+    let mut cleaned = String::new();
+    let mut comment_depth = 0usize;
+    let mut chars = coq_content.chars().peekable();
+
+    while let Some(c) = chars.next() {
+        if c == '(' && chars.peek() == Some(&'*') {
+            // Start of comment
+            chars.next();
+            comment_depth += 1;
+            continue;
+        } else if c == '*' && chars.peek() == Some(&')') {
+            // End of comment
+            chars.next();
+            if comment_depth > 0 {
+                comment_depth -= 1;
+            }
+            continue;
+        }
+
+        if comment_depth == 0 {
+            cleaned.push(c);
+        }
+    }
+
+    let lines: Vec<&str> = cleaned.lines().collect();
     let mut proof_steps = Vec::new();
-    
+
     for (line_num, line) in lines.iter().enumerate() {
         let trimmed = line.trim();
-        
+
         if trimmed == "Proof." {
             continue;
         }
-        
-        if trimmed == "Qed." || trimmed == "Defined." || trimmed.starts_with("Qed") || trimmed.starts_with("Defined") {
+
+        if trimmed == "Qed."
+            || trimmed == "Defined."
+            || trimmed.starts_with("Qed")
+            || trimmed.starts_with("Defined")
+        {
             break;
         }
-        
-        if !trimmed.is_empty() && !trimmed.starts_with("(*") {
+
+        if !trimmed.is_empty() {
             proof_steps.push((line_num, trimmed.to_string()));
         }
     }
-    
+
     proof_steps
 }
 
@@ -542,29 +566,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Type 'q' to quit, 'h' for help");
     println!("-------------------------------------\n");
 
-    // // Get initial proof state
-    // let initial_goals_params = json!({
-    //     "textDocument": { "uri": document_uri, "version": JSON_VERSION },
-    //     "position": { "line": 3, "character": 0 }
-    // });
-
-    // send_request(&mut lsp_stdin, 99, "proof/goals", &initial_goals_params)?;
-
-    // let mut initial_goals_json = serde_json::Value::Null;
-    // while let Ok(message) = rx.recv_timeout(std::time::Duration::from_secs(5)) {
-    //     if let Some(id) = message.get("id") {
-    //         if id.as_u64() == Some(99) {
-    //             if let Some(result) = message.get("result") {
-    //                 println!("Initial state (before first tactic):");
-    //                 println!("{}", format_goals(result, args.debug));
-    //                 initial_goals_json = result.clone();
-    //                 process_tactic_to_midi(&mut midi_output, "Initial state", result, Some(Duration::from_millis(1000)));
-    //                 break;
-    //             }
-    //         }
-    //     }
-    // }
-
     println!("\n{}\n", "-".repeat(60));
 
     // Main interaction loop
@@ -594,7 +595,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             "replay" => handle_replay(&state, &mut midi_output),
             "reset" => handle_reset(&mut state, &mut midi_output),
             "s" | "skip" => handle_skip(&mut state),
-            // "m" | "midi" => handle_midi_test(&mut midi_output, &initial_goals_json),
+            "m" | "midi" => handle_midi_test(&mut midi_output),
             "" => handle_execute_step(&mut state, &mut midi_output, &mut lsp_stdin, &rx, &document_uri, args.debug)?,
             _ => {
                 println!("Unknown command: '{}'. Type 'h' for help.", input);

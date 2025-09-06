@@ -1,6 +1,4 @@
-use clap::builder::Str;
 use clap::Parser;
-use log::debug;
 use serde_json::json;
 use std::fs;
 use std::io::{self, BufRead, BufReader, Read, Write};
@@ -9,7 +7,6 @@ use std::process::{Command, Stdio};
 use std::sync::mpsc;
 use std::thread;
 use std::time::Duration;
-use regex::Regex;
 
 mod midi;
 mod gui;
@@ -315,18 +312,6 @@ fn is_invisible_transition(message: &serde_json::Value) -> bool {
         }
     }
     false
-}
-
-// Extract tactic name from a proof line
-fn extract_tactic_name(line: &str) -> String {
-    let re = Regex::new(r"^\s*[-+*]*\s*([a-zA-Z][a-zA-Z0-9_]*)")
-        .expect("Failed to compile regex");
-    
-    if let Some(captures) = re.captures(line) {
-        captures.get(1).unwrap().as_str().to_lowercase()
-    } else {
-        "unknown".to_string()
-    }
 }
 
 pub fn extract_proof_steps(coq_content: &str) -> Vec<(usize, String)> {

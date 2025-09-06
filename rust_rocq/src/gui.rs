@@ -44,18 +44,6 @@ pub struct RocqVisualizer {
     last_frame_keys: std::collections::HashSet<egui::Key>,
 }
 
-// impl Default for RocqVisualizer {
-//     fn default() -> Self {
-//         Self {
-//             current_line_index: 0,
-//             visible_lines: 10,
-//             tree_patterns: Vec::new(),
-//             flicker_message: None,
-//             last_frame_keys: std::collections::HashSet::new(),
-//             proof_state: Default::default()
-//         }
-//     }
-// }
 
 impl RocqVisualizer {
     pub fn new(proof_state: ProofStepperState, _cc: &eframe::CreationContext<'_>) -> Self {

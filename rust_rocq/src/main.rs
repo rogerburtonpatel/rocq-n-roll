@@ -16,8 +16,6 @@ use midi::{MidiOutput, process_tactic_to_midi, play_proof_sequence};
 use gui::run_with_gui;
 use formatting::format_goals;
 
-// use crate::gui::generate_sample_proof;
-
 #[derive(Parser)]
 #[command(name = "rust_rocq")]
 #[command(about = "Interactive Coq proof stepper with MIDI integration")]
@@ -37,7 +35,6 @@ struct Args {
 const COQ_LSP_STEP_OFFSET: u64 = 100;
 const INIT: u64 = 1;
 const JSON_VERSION : u64 = 1;
-    const DEFAULT_MIDI_DEVICE: i32 = 1;
 
 
 // State management for the proof stepper, with careful consideration 
@@ -54,20 +51,6 @@ pub struct ProofStepperState {
     // member of. 
     midi_output: MidiOutput,
 }
-
-// impl Default for ProofStepperState {
-//     fn default() -> Self {
-//         ProofStepperState {
-//             current_step: 0,
-//             total_steps: 0,
-//             last_goals_state: serde_json::Value::Null,
-//             proof_lines: generate_sample_proof(),
-//             lsp_position_offset: 0, 
-//             midi_output: MidiOutput::new(Some(DEFAULT_MIDI_DEVICE))
-//             .expect("Constructed"),
-//         }
-//     }
-// }
 
 impl ProofStepperState {
     fn new(proof_lines: Vec<(usize, String)>, midi_device : MidiOutput) -> Self {
@@ -409,7 +392,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .map_err(|e| format!("Failed to read file '{}': {}", args.file.display(), e))?;
 
     // Initialize MIDI output
-    let mut midi_output = MidiOutput::new(args.midi_device)?;
+    let midi_output = MidiOutput::new(args.midi_device)?;
 
     // Start the Coq LSP process
     let mut coq_lsp = match Command::new("coq-lsp")

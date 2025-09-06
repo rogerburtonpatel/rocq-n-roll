@@ -1,17 +1,16 @@
 use clap::Parser;
 use serde_json::json;
 use std::fs;
-use std::io::{self, BufRead, BufReader, Read, Write};
+use std::io::{self, Write};
 use std::path::PathBuf;
-use std::process::{Command, Stdio};
-use std::sync::mpsc;
-use std::thread;
 use std::time::Duration;
 
+mod lsp;
 mod midi;
 mod gui;
 mod formatting;
 
+use lsp::RocqLSP;
 use midi::{MidiOutput, process_tactic_to_midi, play_proof_sequence};
 use gui::run_with_gui;
 use formatting::format_goals;
@@ -32,10 +31,7 @@ struct Args {
     gui: bool
 }
 
-const COQ_LSP_STEP_OFFSET: u64 = 100;
-const INIT: u64 = 1;
-const JSON_VERSION : u64 = 1;
-
+const JSON_VERSION: u64 = 1;
 
 // State management for the proof stepper, with careful consideration 
 // for the LSP's 'invisible step' when entering Proof Mode. 
@@ -45,25 +41,23 @@ pub struct ProofStepperState {
     total_steps: usize,
     last_goals_state: serde_json::Value,
     proof_lines: Vec<(usize, String)>,
-    lsp_position_offset: usize, // Track offset caused by invisible transitions
 
     // MIDI - would be nice to keep external, but Rust's impl rules demand we 
     // pass it in via RocqVisualizer, which MIDI should _definitely_ not be a 
     // member of. 
     midi_output: MidiOutput,
-    
+    rocq_lsp: RocqLSP,
 }
 
 impl ProofStepperState {
-    fn new(proof_lines: Vec<(usize, String)>, midi_device : MidiOutput) -> Self {
-        let total_steps = proof_lines.len();
+    fn new(proof_lines: Vec<(usize, String)>, midi_device: MidiOutput, rocq_lsp: RocqLSP) -> Self {
         Self {
             current_step: 0,
-            total_steps,
+            total_steps: proof_lines.len(),
             last_goals_state: serde_json::Value::Null,
             proof_lines,
-            lsp_position_offset: 0,
             midi_output: midi_device,
+            rocq_lsp: rocq_lsp,
         }
     }
 
@@ -75,9 +69,9 @@ impl ProofStepperState {
         self.proof_lines.get(self.current_step)
     }
 
-    fn get_lsp_line_number(&self) -> usize {
+    fn get_lsp_line_number(&self, lsp: &RocqLSP) -> usize {
         if let Some((line_num, _)) = self.get_current_tactic() {
-            *line_num + self.lsp_position_offset
+            *line_num + lsp.lsp_position_offset
         } else {
             0
         }
@@ -91,7 +85,6 @@ impl ProofStepperState {
 
     fn reset(&mut self) {
         self.current_step = 0;
-        self.lsp_position_offset = 0;
         self.last_goals_state = serde_json::Value::Null;
     }
 
@@ -151,6 +144,7 @@ fn handle_reset(state: &mut ProofStepperState) -> bool {
     println!("\nResetting to beginning of proof...");
     state.midi_output.stop_all_notes();
     state.reset();
+    state.rocq_lsp.lsp_position_offset = 0;
     false
 }
 
@@ -162,15 +156,13 @@ fn handle_skip(state: &mut ProofStepperState) -> bool {
 
 fn handle_midi_test(midi_output: &mut MidiOutput) -> bool {
     println!("\nTesting MIDI Out: Emitting NOTE ON...");
-            midi_output.play_note(90, 100, Some(Duration::from_millis(1100)));
+    midi_output.play_note(90, 100, Some(Duration::from_millis(1100)));
     println!("");
     false 
 }
 
 fn handle_execute_step(
     state: &mut ProofStepperState,
-    lsp_stdin: &mut std::process::ChildStdin,
-    rx: &mpsc::Receiver<serde_json::Value>,
     document_uri: &str,
     debug: bool,
 ) -> Result<bool, Box<dyn std::error::Error>> {
@@ -183,7 +175,7 @@ fn handle_execute_step(
     println!("\nExecuting step {}/{}...", state.current_step + 1, state.total_steps);
 
     // Request goals at the LSP position (accounting for any offset)
-    let lsp_line = state.get_lsp_line_number();
+    let lsp_line = state.get_lsp_line_number(&state.rocq_lsp);
     let goals_params = json!({
         "textDocument": {
             "uri": document_uri,
@@ -195,21 +187,17 @@ fn handle_execute_step(
         }
     });
 
-    send_request(
-        lsp_stdin,
-        state.current_step as u64 + COQ_LSP_STEP_OFFSET,
-        "proof/goals",
-        &goals_params,
-    )?;
+    let request_id = state.current_step as u64 + lsp::COQ_LSP_STEP_OFFSET;
+    state.rocq_lsp.send_request(request_id, "proof/goals", &goals_params)?;
 
     // Wait for and process response
     let mut found_response = false;
     let mut responses_received = 0;
 
-    while let Ok(message) = rx.recv_timeout(std::time::Duration::from_secs(5)) {
+    while let Some(message) = state.rocq_lsp.recv(Duration::from_secs(5)) {
         if let Some(id) = message.get("id") {
             const INVIS_STEP_OFFSET: u64 = 1000;
-            if id.as_u64() == Some(state.current_step as u64 + COQ_LSP_STEP_OFFSET) {
+            if id.as_u64() == Some(request_id) {
                 responses_received += 1;
 
                 if debug {
@@ -221,7 +209,7 @@ fn handle_execute_step(
                 // Check if this is an invisible transition step
                 if is_invisible_transition(&message) {
                     println!("Detected invisible proof transition, adjusting offset...");
-                    state.lsp_position_offset += 1;
+                    state.rocq_lsp.lsp_position_offset += 1;
                     
                     // Make another request with the adjusted position
                     let adjusted_goals_params = json!({
@@ -230,14 +218,13 @@ fn handle_execute_step(
                             "version": JSON_VERSION
                         },
                         "position": {
-                            "line": state.get_lsp_line_number(),
+                            "line": state.get_lsp_line_number(&state.rocq_lsp),
                             "character": 0
                         }
                     });
 
-                    send_request(
-                        lsp_stdin,
-                        state.current_step as u64 + COQ_LSP_STEP_OFFSET + INVIS_STEP_OFFSET,
+                    state.rocq_lsp.send_request(
+                        request_id + INVIS_STEP_OFFSET,
                         "proof/goals",
                         &adjusted_goals_params,
                     )?;
@@ -265,7 +252,7 @@ fn handle_execute_step(
                 }
             }
             // Handle the adjusted request response
-            else if id.as_u64() == Some(state.current_step as u64 + COQ_LSP_STEP_OFFSET + INVIS_STEP_OFFSET) {
+            else if id.as_u64() == Some(request_id + INVIS_STEP_OFFSET) {
                 if let Some(result) = message.get("result") {
                     found_response = true;
 
@@ -397,127 +384,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Initialize MIDI output
     let midi_output = MidiOutput::new(args.midi_device)?;
 
-    // Start the Coq LSP process
-    let mut coq_lsp = match Command::new("coq-lsp")
-        .stdout(Stdio::piped())
-        .stdin(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-    {
-        Ok(child) => child,
-        Err(e) => {
-            if let Some(2) = e.raw_os_error() {
-                eprintln!("Error: coq-lsp executable not found (OS error 2). Did you run `opam install coq-lsp?`");
-                return Err(Box::new(e));        
-            }
-            eprintln!("Error spawning coq-lsp process: {}", e);
-            return Err(Box::new(e));
+    // Start the LSP
+    let mut lsp = RocqLSP::start().map_err(|e| {
+        if e.to_string().contains("No such file") {
+            format!("Error: coq-lsp executable not found. Did you run `opam install coq-lsp`?\nOriginal error: {}", e)
+        } else {
+            format!("Failed to start coq-lsp: {}", e)
         }
-    };
-
-    // Set up communication channels
-    let mut lsp_stdin = coq_lsp.stdin.take().expect("Failed to open stdin");
-    let lsp_stdout = coq_lsp.stdout.take().expect("Failed to open stdout");
-    let lsp_stderr = BufReader::new(coq_lsp.stderr.take().expect("Failed to open stderr"));
-
-    // Channel for parsed messages
-    let (tx, rx) = mpsc::channel();
-
-    // Handle stderr
-    thread::spawn(move || {
-        for line in lsp_stderr.lines() {
-            if let Ok(line) = line {
-                eprintln!("Coq LSP stderr: {}", line);
-            }
-        }
-    });
-
-    // Handle stdout and parse LSP messages
-    let tx_clone = tx.clone();
-    thread::spawn(move || {
-        let mut reader = BufReader::new(lsp_stdout);
-        loop {
-            let mut header = String::new();
-            match reader.read_line(&mut header) {
-                Ok(0) => break,
-                Ok(_) => {}
-                Err(e) => {
-                    eprintln!("Error reading header: {}", e);
-                    break;
-                }
-            }
-
-            if !header.starts_with("Content-Length:") {
-                continue;
-            }
-
-            let content_length = match header
-                .trim_start_matches("Content-Length:")
-                .trim()
-                .parse::<usize>()
-            {
-                Ok(len) => len,
-                Err(e) => {
-                    eprintln!("Error parsing content length: {}", e);
-                    continue;
-                }
-            };
-
-            let mut empty_line = String::new();
-            if let Err(e) = reader.read_line(&mut empty_line) {
-                eprintln!("Error reading empty line: {}", e);
-                break;
-            }
-
-            let mut content = vec![0; content_length];
-            if let Err(e) = reader.read_exact(&mut content) {
-                eprintln!("Error reading content: {}", e);
-                break;
-            }
-
-            let message_str = match String::from_utf8(content) {
-                Ok(s) => s,
-                Err(e) => {
-                    eprintln!("Error converting to UTF-8: {}", e);
-                    continue;
-                }
-            };
-
-            let message: serde_json::Value = match serde_json::from_str(&message_str) {
-                Ok(v) => v,
-                Err(e) => {
-                    eprintln!("Error parsing JSON: {}", e);
-                    continue;
-                }
-            };
-
-            if let Err(e) = tx_clone.send(message) {
-                eprintln!("Error sending message: {}", e);
-                break;
-            }
-        }
-    });
-
-    // Initialize LSP connection
-    let init_params = json!({
-        "processId": null,
-        "clientInfo": {"name": "rust-coq-stepper"},
-        "rootUri": null,
-        "capabilities": {}
-    });
-
-    send_request(&mut lsp_stdin, INIT, "initialize", &init_params)?;
-
-    while let Ok(message) = rx.recv() {
-        if let Some(id) = message.get("id") {
-            if id.as_u64() == Some(INIT) && message.get("result").is_some() {
-                break;
-            }
-        }
-    }
+    })?;
 
     println!("Coq LSP connected successfully");
-    send_notification(&mut lsp_stdin, "initialized", &json!({}))?;
+    
+    // Initialize the LSP
+    lsp.initialize()?;
 
     // Display the proof file
     println!("\nCoq proof to step through:");
@@ -538,8 +417,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     });
 
-    send_notification(&mut lsp_stdin, "textDocument/didOpen", &open_params)?;
-    thread::sleep(std::time::Duration::from_secs(1));
+    lsp.send_notification("textDocument/didOpen", &open_params)?;
+    std::thread::sleep(Duration::from_secs(1));
 
     // Initialize proof stepper state
     let proof_lines = extract_proof_steps(&coq_file);
@@ -554,8 +433,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     }
 
-    let mut state = ProofStepperState::new(proof_lines, midi_output);
-
+    let mut state = ProofStepperState::new(proof_lines, midi_output, lsp);
 
     if args.gui {
         // todo: gui steps interactively with a ProofStepperState.
@@ -565,7 +443,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         run_with_gui(state)?;
         return Ok(());
     }
-
 
     // Display initial state
     println!("\nInteractive Coq Proof Stepper with MIDI");
@@ -593,7 +470,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         io::stdout().flush()?;
 
         user_input.clear();
-        stdin.lock().read_line(&mut user_input)?;
+        std::io::BufRead::read_line(&mut stdin.lock(), &mut user_input)?;
         let input = user_input.trim();
 
         let should_exit = match input {
@@ -604,7 +481,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             "reset" => handle_reset(&mut state),
             "s" | "skip" => handle_skip(&mut state),
             "m" | "midi" => handle_midi_test(&mut state.midi_output),
-            "" => handle_execute_step(&mut state, &mut lsp_stdin, &rx, &document_uri, args.debug)?,
+            "" => handle_execute_step(&mut state, &document_uri, args.debug)?,
             _ => {
                 println!("Unknown command: '{}'. Type 'h' for help.", input);
                 false
@@ -618,61 +495,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Cleanup
     let close_params = json!({ "textDocument": { "uri": document_uri } });
-    send_notification(&mut lsp_stdin, "textDocument/didClose", &close_params)?;
+    state.rocq_lsp.send_notification("textDocument/didClose", &close_params)?;
     state.midi_output.stop_all_notes();
 
     println!("Proof session ended.");
-    Ok(())
-}
-
-// Helper function to send LSP requests
-fn send_request(
-    stdin: &mut std::process::ChildStdin,
-    id: u64,
-    method: &str,
-    params: &serde_json::Value,
-) -> Result<(), Box<dyn std::error::Error>> {
-    let request = json!({
-        "jsonrpc": "2.0",
-        "id": id,
-        "method": method,
-        "params": params
-    });
-
-    let request_str = serde_json::to_string(&request)?;
-    let content_length = request_str.len();
-
-    stdin.write_all(
-        format!("Content-Length: {}\r\n\r\n{}", content_length, request_str).as_bytes(),
-    )?;
-    stdin.flush()?;
-
-    Ok(())
-}
-
-// Helper function to send LSP notifications
-fn send_notification(
-    stdin: &mut std::process::ChildStdin,
-    method: &str,
-    params: &serde_json::Value,
-) -> Result<(), Box<dyn std::error::Error>> {
-    let notification = json!({
-        "jsonrpc": "2.0",
-        "method": method,
-        "params": params
-    });
-
-    let notification_str = serde_json::to_string(&notification)?;
-    let content_length = notification_str.len();
-
-    stdin.write_all(
-        format!(
-            "Content-Length: {}\r\n\r\n{}",
-            content_length, notification_str
-        )
-        .as_bytes(),
-    )?;
-    stdin.flush()?;
-
     Ok(())
 }

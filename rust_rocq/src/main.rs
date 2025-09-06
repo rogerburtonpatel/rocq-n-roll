@@ -16,7 +16,7 @@ use midi::{MidiOutput, process_tactic_to_midi, play_proof_sequence};
 use gui::run_with_gui;
 use formatting::format_goals;
 
-use crate::gui::generate_sample_proof;
+// use crate::gui::generate_sample_proof;
 
 #[derive(Parser)]
 #[command(name = "rust_rocq")]
@@ -37,32 +37,40 @@ struct Args {
 const COQ_LSP_STEP_OFFSET: u64 = 100;
 const INIT: u64 = 1;
 const JSON_VERSION : u64 = 1;
+    const DEFAULT_MIDI_DEVICE: i32 = 1;
+
 
 // State management for the proof stepper, with careful consideration 
 // for the LSP's 'invisible step' when entering Proof Mode. 
-#[derive(Debug)]
+// Can't #[derive(Debug)] bc PortMidi doesn't have it, and I'm lazy 
 pub struct ProofStepperState {
     current_step: usize,
     total_steps: usize,
     last_goals_state: serde_json::Value,
     proof_lines: Vec<(usize, String)>,
     lsp_position_offset: usize, // Track offset caused by invisible transitions
+    // MIDI - would be nice to keep external, but Rust's impl rules demand we 
+    // pass it in via RocqVisualizer, which MIDI should _definitely_ not be a 
+    // member of. 
+    midi_output: MidiOutput,
 }
 
-impl Default for ProofStepperState {
-    fn default() -> Self {
-        ProofStepperState {
-            current_step: 0,
-            total_steps: 0,
-            last_goals_state: serde_json::Value::Null,
-            proof_lines: generate_sample_proof(),
-            lsp_position_offset: 0, 
-        }
-    }
-}
+// impl Default for ProofStepperState {
+//     fn default() -> Self {
+//         ProofStepperState {
+//             current_step: 0,
+//             total_steps: 0,
+//             last_goals_state: serde_json::Value::Null,
+//             proof_lines: generate_sample_proof(),
+//             lsp_position_offset: 0, 
+//             midi_output: MidiOutput::new(Some(DEFAULT_MIDI_DEVICE))
+//             .expect("Constructed"),
+//         }
+//     }
+// }
 
 impl ProofStepperState {
-    fn new(proof_lines: Vec<(usize, String)>) -> Self {
+    fn new(proof_lines: Vec<(usize, String)>, midi_device : MidiOutput) -> Self {
         let total_steps = proof_lines.len();
         Self {
             current_step: 0,
@@ -70,6 +78,7 @@ impl ProofStepperState {
             last_goals_state: serde_json::Value::Null,
             proof_lines,
             lsp_position_offset: 0,
+            midi_output: midi_device,
         }
     }
 
@@ -126,7 +135,7 @@ fn handle_help() -> bool {
     false
 }
 
-fn handle_explain(state: &ProofStepperState) -> bool {
+fn handle_explain(state: &mut ProofStepperState) -> bool {
     if let Some((_, line_text)) = state.get_current_tactic() {
         println!("\nExplanation of tactic: {}", line_text);
         println!("(Generic explanation not available for this tactic)");
@@ -137,13 +146,14 @@ fn handle_explain(state: &ProofStepperState) -> bool {
     false
 }
 
-fn handle_replay(state: &ProofStepperState, midi_output: &mut MidiOutput) -> bool {
+fn handle_replay(state: &mut ProofStepperState) -> bool {
     println!("\nReplaying current note...");
-    midi_output.stop_all_notes();
+    state.midi_output.stop_all_notes();
+    let last_goals_state = state.last_goals_state.clone();
     
     if state.last_goals_state != serde_json::Value::Null {
         if let Some((_, current_line_text)) = state.get_current_tactic() {
-            process_tactic_to_midi(midi_output, current_line_text, &state.last_goals_state, Some(Duration::from_millis(2000)));
+            process_tactic_to_midi(&state.midi_output, current_line_text, &last_goals_state, Some(Duration::from_millis(2000)));
         }
     } else {
         println!("No current step to replay.");
@@ -152,9 +162,9 @@ fn handle_replay(state: &ProofStepperState, midi_output: &mut MidiOutput) -> boo
     false
 }
 
-fn handle_reset(state: &mut ProofStepperState, midi_output: &mut MidiOutput) -> bool {
+fn handle_reset(state: &mut ProofStepperState) -> bool {
     println!("\nResetting to beginning of proof...");
-    midi_output.stop_all_notes();
+    state.midi_output.stop_all_notes();
     state.reset();
     false
 }
@@ -174,7 +184,6 @@ fn handle_midi_test(midi_output: &mut MidiOutput) -> bool {
 
 fn handle_execute_step(
     state: &mut ProofStepperState,
-    midi_output: &mut MidiOutput,
     lsp_stdin: &mut std::process::ChildStdin,
     rx: &mpsc::Receiver<serde_json::Value>,
     document_uri: &str,
@@ -259,7 +268,7 @@ fn handle_execute_step(
                     state.last_goals_state = result.clone();
 
                     // Process this proof state to MIDI
-                    process_tactic_to_midi(midi_output, &line_text, result, None);
+                    process_tactic_to_midi(&state.midi_output, &line_text, result, None);
 
                     break;
                     
@@ -278,7 +287,7 @@ fn handle_execute_step(
                     println!("{}", format_goals(result, debug));
                     
                     state.last_goals_state = result.clone();
-                    process_tactic_to_midi(midi_output, &line_text, result, None);
+                    process_tactic_to_midi(&state.midi_output, &line_text, result, None);
 
                     break;
                 } else if let Some(error) = message.get("error") {
@@ -555,20 +564,22 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Auto-play mode
     if args.auto_play {
-        play_proof_sequence(&proof_lines, &mut midi_output);
+        play_proof_sequence(&proof_lines, &midi_output);
         return Ok(());
     }
+
+    let mut state = ProofStepperState::new(proof_lines, midi_output);
+
 
     if args.gui {
         // todo: gui steps interactively with a ProofStepperState.
         // ProofStepperState may be a substruct of RocqVisualizer.
         // down arrow -> call lsp, get result. play sound based on result. do viz based on result. 
         // honestly, we want to go up and down. TODO: go back. 
-        run_with_gui(proof_lines)?;
+        run_with_gui(state)?;
         return Ok(());
     }
 
-    let mut state = ProofStepperState::new(proof_lines);
 
     // Display initial state
     println!("\nInteractive Coq Proof Stepper with MIDI");
@@ -602,12 +613,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let should_exit = match input {
             "q" | "quit" | "exit" => handle_quit(),
             "h" | "help" => handle_help(),
-            "e" | "explain" => handle_explain(&state),
-            "replay" => handle_replay(&state, &mut midi_output),
-            "reset" => handle_reset(&mut state, &mut midi_output),
+            "e" | "explain" => handle_explain(&mut state),
+            "replay" => handle_replay(&mut state),
+            "reset" => handle_reset(&mut state),
             "s" | "skip" => handle_skip(&mut state),
-            "m" | "midi" => handle_midi_test(&mut midi_output),
-            "" => handle_execute_step(&mut state, &mut midi_output, &mut lsp_stdin, &rx, &document_uri, args.debug)?,
+            "m" | "midi" => handle_midi_test(&mut state.midi_output),
+            "" => handle_execute_step(&mut state, &mut lsp_stdin, &rx, &document_uri, args.debug)?,
             _ => {
                 println!("Unknown command: '{}'. Type 'h' for help.", input);
                 false
@@ -622,7 +633,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Cleanup
     let close_params = json!({ "textDocument": { "uri": document_uri } });
     send_notification(&mut lsp_stdin, "textDocument/didClose", &close_params)?;
-    midi_output.stop_all_notes();
+    state.midi_output.stop_all_notes();
 
     println!("Proof session ended.");
     Ok(())

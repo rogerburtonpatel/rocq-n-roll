@@ -29,8 +29,11 @@ struct FlickerMessage {
 }
 
 pub struct RocqVisualizer {
+    // Single Point of Truth on the Proof
+    proof_state: ProofStepperState,
+
     // Proof text management
-    current_line_index: usize,
+    current_line_index: usize, // TODO replace all instances with proof_state.curr_line
     visible_lines: usize,
     
     // Visual effects
@@ -39,31 +42,30 @@ pub struct RocqVisualizer {
     
     // Input handling
     last_frame_keys: std::collections::HashSet<egui::Key>,
-    proof_state: ProofStepperState
 }
 
-impl Default for RocqVisualizer {
-    fn default() -> Self {
-        Self {
-            current_line_index: 0,
-            visible_lines: 10,
-            tree_patterns: Vec::new(),
-            flicker_message: None,
-            last_frame_keys: std::collections::HashSet::new(),
-            proof_state: Default::default()
-        }
-    }
-}
+// impl Default for RocqVisualizer {
+//     fn default() -> Self {
+//         Self {
+//             current_line_index: 0,
+//             visible_lines: 10,
+//             tree_patterns: Vec::new(),
+//             flicker_message: None,
+//             last_frame_keys: std::collections::HashSet::new(),
+//             proof_state: Default::default()
+//         }
+//     }
+// }
 
 impl RocqVisualizer {
-    pub fn new(proof: Vec<(usize, String)>, _cc: &eframe::CreationContext<'_>) -> Self {
+    pub fn new(proof_state: ProofStepperState, _cc: &eframe::CreationContext<'_>) -> Self {
         Self {
             current_line_index: 0,
             visible_lines: 10,
             tree_patterns: Vec::new(),
             flicker_message: None,
             last_frame_keys: std::collections::HashSet::new(),
-            proof_state: ProofStepperState::new(proof)
+            proof_state: proof_state
         }
     }
 
@@ -388,7 +390,7 @@ pub fn generate_sample_proof() -> Vec<(usize, String)> {
     }).collect()
 }
 
-pub fn run_with_gui(proof: Vec<(usize, String)>) -> Result<(), eframe::Error> {
+pub fn run_with_gui(proof_state: ProofStepperState) -> Result<(), eframe::Error> {
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
             .with_inner_size([1200.0, 800.0])
@@ -402,6 +404,6 @@ pub fn run_with_gui(proof: Vec<(usize, String)>) -> Result<(), eframe::Error> {
     eframe::run_native(
         "Rocq Proof Visualizer",
         options,
-        Box::new(|cc| Box::new(RocqVisualizer::new(proof, cc))),
+        Box::new(|cc| Box::new(RocqVisualizer::new(proof_state, cc))),
     )
 }

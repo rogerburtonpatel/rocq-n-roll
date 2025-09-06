@@ -10,11 +10,14 @@ use pm::MidiMessage;
 static CHANNEL: u8 = 0;
 
 // MIDI output wrapper
+
 pub struct MidiOutput {
     context: Option<pm::PortMidi>,
     port_id: Option<i32>,
     enabled: bool,
 }
+
+
 
 impl MidiOutput {
     pub fn new(device_id: Option<i32>) -> Result<Self, Box<dyn std::error::Error>> {
@@ -38,7 +41,7 @@ impl MidiOutput {
         }
     }
     
-    pub fn play_note(&mut self, pitch: u8, velocity: u8, hold_duration: Option<Duration>) {
+    pub fn play_note(&self, pitch: u8, velocity: u8, hold_duration: Option<Duration>) {
         if !self.enabled || self.context.is_none() || self.port_id.is_none() {
             return;
         }
@@ -80,7 +83,7 @@ impl MidiOutput {
         }
     }
     
-    pub fn stop_note(&mut self, pitch: u8) {
+    pub fn stop_note(&self, pitch: u8) {
         if !self.enabled || self.context.is_none() || self.port_id.is_none() {
             return;
         }
@@ -104,7 +107,7 @@ impl MidiOutput {
         }
     }
     
-    pub fn stop_all_notes(&mut self) {
+    pub fn stop_all_notes(&self) {
         if !self.enabled {
             return;
         }
@@ -166,7 +169,7 @@ pub fn extract_tactic_name(line: &str) -> String {
 
 // Real MIDI processing function
 pub fn process_tactic_to_midi(
-    midi_output: &mut MidiOutput, 
+    midi_output: &MidiOutput, 
     line_text: &str, 
     goals_json: &serde_json::Value,
     hold_duration: Option<Duration>
@@ -218,7 +221,7 @@ pub fn process_tactic_to_midi(
 
 // TODO change this completely. do it based on diff with last goal. 
 // Add harmonic context based on proof correctness
-fn play_harmonic_context(midi_output: &mut MidiOutput, goals_json: &serde_json::Value, base_pitch: u8) {
+fn play_harmonic_context(midi_output: &MidiOutput, goals_json: &serde_json::Value, base_pitch: u8) {
     if let Some(goals_config) = goals_json.get("goals") {
         if let Some(goals) = goals_config.get("goals") {
             if let Some(goals_array) = goals.as_array() {
@@ -272,7 +275,7 @@ fn text_of_message(message: &Value) -> String {
 }
 
 // Play a chord with given intervals
-fn play_chord(midi_output: &mut MidiOutput, root: u8, intervals: &[u8], velocity: u8) {
+fn play_chord(midi_output: &MidiOutput, root: u8, intervals: &[u8], velocity: u8) {
     for &interval in intervals {
         let note = (root as i16 + interval as i16).min(127) as u8;
         midi_output.play_note(note, velocity, None);
@@ -280,7 +283,7 @@ fn play_chord(midi_output: &mut MidiOutput, root: u8, intervals: &[u8], velocity
 }
 
 // Play dissonant cluster for errors
-fn play_dissonant_cluster(midi_output: &mut MidiOutput, base_pitch: u8) {
+fn play_dissonant_cluster(midi_output: &MidiOutput, base_pitch: u8) {
     // Play cluster of semitones - very dissonant
     for i in 0..4 {
         let note = (base_pitch as i16 + i).min(127) as u8;
@@ -289,7 +292,7 @@ fn play_dissonant_cluster(midi_output: &mut MidiOutput, base_pitch: u8) {
 }
 
 // Play entire proof sequence with delays
-pub fn play_proof_sequence(proof_steps: &[(usize, String)], midi_output: &mut MidiOutput) {
+pub fn play_proof_sequence(proof_steps: &[(usize, String)], midi_output: &MidiOutput) {
     println!("\n[MIDI] Playing entire proof sequence with delays...");
     
     let tactic_map = create_tactic_midi_map();

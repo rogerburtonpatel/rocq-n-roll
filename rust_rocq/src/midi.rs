@@ -116,6 +116,7 @@ impl MidiOutput {
     }
 }
 
+// TODO redo this completely with deautomation. 
 // Tactic to (pitch, velocity) mapping
 pub fn create_tactic_midi_map() -> HashMap<&'static str, (u8, u8)> {
     let mut map = HashMap::new();
@@ -215,6 +216,7 @@ pub fn process_tactic_to_midi(
     play_harmonic_context(midi_output, goals_json, pitch);
 }
 
+// TODO change this completely. do it based on diff with last goal. 
 // Add harmonic context based on proof correctness
 fn play_harmonic_context(midi_output: &mut MidiOutput, goals_json: &serde_json::Value, base_pitch: u8) {
     if let Some(goals_config) = goals_json.get("goals") {

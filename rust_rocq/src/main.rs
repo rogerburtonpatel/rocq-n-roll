@@ -16,6 +16,8 @@ use midi::{MidiOutput, process_tactic_to_midi, play_proof_sequence};
 use gui::run_with_gui;
 use formatting::format_goals;
 
+use crate::gui::generate_sample_proof;
+
 #[derive(Parser)]
 #[command(name = "rust_rocq")]
 #[command(about = "Interactive Coq proof stepper with MIDI integration")]
@@ -36,14 +38,27 @@ const COQ_LSP_STEP_OFFSET: u64 = 100;
 const INIT: u64 = 1;
 const JSON_VERSION : u64 = 1;
 
-// State management for the proof stepper
+// State management for the proof stepper, with careful consideration 
+// for the LSP's 'invisible step' when entering Proof Mode. 
 #[derive(Debug)]
-struct ProofStepperState {
+pub struct ProofStepperState {
     current_step: usize,
     total_steps: usize,
     last_goals_state: serde_json::Value,
     proof_lines: Vec<(usize, String)>,
     lsp_position_offset: usize, // Track offset caused by invisible transitions
+}
+
+impl Default for ProofStepperState {
+    fn default() -> Self {
+        ProofStepperState {
+            current_step: 0,
+            total_steps: 0,
+            last_goals_state: serde_json::Value::Null,
+            proof_lines: generate_sample_proof(),
+            lsp_position_offset: 0, 
+        }
+    }
 }
 
 impl ProofStepperState {
@@ -548,8 +563,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         // todo: gui steps interactively with a ProofStepperState.
         // ProofStepperState may be a substruct of RocqVisualizer.
         // down arrow -> call lsp, get result. play sound based on result. do viz based on result. 
-        // honestly, we want to go up and down. 
-        run_with_gui(proof_lines.iter().map(| (_, l) | l.clone()).collect())?;
+        // honestly, we want to go up and down. TODO: go back. 
+        run_with_gui(proof_lines)?;
         return Ok(());
     }
 

@@ -3,9 +3,10 @@ use egui::{Color32, FontId, Pos2, Rect, Stroke, Vec2};
 use rand::Rng;
 use std::time::{Duration, Instant};
 
+use crate::{midi::process_tactic_to_midi, ProofStepperState};
+
 #[derive(Clone)]
 struct TreePattern {
-    origin: Pos2,
     branches: Vec<Branch>,
     color: Color32,
     birth_time: Instant,
@@ -29,7 +30,6 @@ struct FlickerMessage {
 
 pub struct RocqVisualizer {
     // Proof text management
-    proof_lines: Vec<String>,
     current_line_index: usize,
     visible_lines: usize,
     
@@ -39,35 +39,31 @@ pub struct RocqVisualizer {
     
     // Input handling
     last_frame_keys: std::collections::HashSet<egui::Key>,
-    
-    // Animation
-    last_update: Instant,
+    proof_state: ProofStepperState
 }
 
 impl Default for RocqVisualizer {
     fn default() -> Self {
         Self {
-            proof_lines: generate_sample_proof(),
             current_line_index: 0,
             visible_lines: 10,
             tree_patterns: Vec::new(),
             flicker_message: None,
             last_frame_keys: std::collections::HashSet::new(),
-            last_update: Instant::now(),
+            proof_state: Default::default()
         }
     }
 }
 
 impl RocqVisualizer {
-    pub fn new(proof: Vec<String>, _cc: &eframe::CreationContext<'_>) -> Self {
+    pub fn new(proof: Vec<(usize, String)>, _cc: &eframe::CreationContext<'_>) -> Self {
         Self {
-            proof_lines: proof,
             current_line_index: 0,
             visible_lines: 10,
             tree_patterns: Vec::new(),
             flicker_message: None,
             last_frame_keys: std::collections::HashSet::new(),
-            last_update: Instant::now(),
+            proof_state: ProofStepperState::new(proof)
         }
     }
 
@@ -80,7 +76,15 @@ impl RocqVisualizer {
             if !self.last_frame_keys.contains(key) {
                 match key {
                     egui::Key::ArrowDown => {
-                        if self.current_line_index < self.proof_lines.len().saturating_sub(1) {
+                        if self.current_line_index < self.proof_state.proof_lines.len().saturating_sub(1) {
+                            // here we are. 
+                            // send request to lsp 
+                            // update proof with response 
+                            // process_tactic_to_midi(midi_output, &line_text, result, None);
+                            // 
+
+
+
                             self.current_line_index += 1;
                             self.spawn_tree_pattern(ctx);
                             // TODO 2: lsp update via display functions
@@ -130,7 +134,6 @@ impl RocqVisualizer {
         );
         
         let tree = TreePattern {
-            origin,
             branches: self.generate_tree_branches(origin, 5, 80.0),
             color,
             birth_time: Instant::now(),
@@ -215,7 +218,7 @@ impl RocqVisualizer {
         let painter = ctx.layer_painter(egui::LayerId::new(egui::Order::Foreground, egui::Id::new("proof_text")));
         
         let start_line = self.current_line_index.saturating_sub(self.visible_lines / 2);
-        let end_line = (start_line + self.visible_lines).min(self.proof_lines.len());
+        let end_line = (start_line + self.visible_lines).min(self.proof_state.proof_lines.len());
         
         for (i, line_idx) in (start_line..end_line).enumerate() {
             let y_offset = i as f32 * 20.0;
@@ -230,7 +233,7 @@ impl RocqVisualizer {
             painter.text(
                 pos,
                 egui::Align2::LEFT_TOP,
-                &self.proof_lines[line_idx],
+                &self.proof_state.proof_lines[line_idx].1,
                 FontId::monospace(12.0),
                 color,
             );
@@ -344,42 +347,48 @@ impl eframe::App for RocqVisualizer {
     }
 }
 
-fn generate_sample_proof() -> Vec<String> {
+pub fn generate_sample_proof() -> Vec<(usize, String)> {
+    let mut line_no : usize = 0; 
     vec![
-        "Theorem plus_comm : forall n m : nat, n + m = m + n.".to_string(),
-        "Proof.".to_string(),
-        "  intros n m.".to_string(),
-        "  induction n as [| n' IHn'].".to_string(),
-        "  - (* n = 0 *)".to_string(),
-        "    simpl.".to_string(),
-        "    rewrite <- plus_n_O.".to_string(),
-        "    reflexivity.".to_string(),
-        "  - (* n = S n' *)".to_string(),
-        "    simpl.".to_string(),
-        "    rewrite IHn'.".to_string(),
-        "    rewrite plus_n_Sm.".to_string(),
-        "    reflexivity.".to_string(),
-        "Qed.".to_string(),
-        "".to_string(),
-        "Theorem mult_comm : forall n m : nat, n * m = m * n.".to_string(),
-        "Proof.".to_string(),
-        "  intros n m.".to_string(),
-        "  induction n as [| n' IHn'].".to_string(),
-        "  - (* n = 0 *)".to_string(),
-        "    simpl.".to_string(),
-        "    rewrite <- mult_n_O.".to_string(),
-        "    reflexivity.".to_string(),
-        "  - (* n = S n' *)".to_string(),
-        "    simpl.".to_string(),
-        "    rewrite IHn'.".to_string(),
-        "    rewrite mult_n_Sm.".to_string(),
-        "    rewrite plus_comm.".to_string(),
-        "    reflexivity.".to_string(),
-        "Qed.".to_string(),
-    ]
+         "Theorem plus_comm : forall n m : nat, n + m = m + n.",
+         "Proof.",
+         "  intros n m.",
+         "  induction n as [| n' IHn'].",
+         "  - (* n = 0 *)",
+         "    simpl.",
+         "    rewrite <- plus_n_O.",
+         "    reflexivity.",
+         "  - (* n = S n' *)",
+         "    simpl.",
+         "    rewrite IHn'.",
+         "    rewrite plus_n_Sm.",
+         "    reflexivity.",
+         "Qed.",
+         "",
+         "Theorem mult_comm : forall n m : nat, n * m = m * n.",
+         "Proof.",
+         "  intros n m.",
+         "  induction n as [| n' IHn'].",
+         "  - (* n = 0 *)",
+         "    simpl.",
+         "    rewrite <- mult_n_O.",
+         "    reflexivity.",
+         "  - (* n = S n' *)",
+         "    simpl.",
+         "    rewrite IHn'.",
+         "    rewrite mult_n_Sm.",
+         "    rewrite plus_comm.",
+         "    reflexivity.",
+         "Qed.",
+    ].iter().map(
+        |s| { 
+        let old_line_no = line_no; 
+        line_no += 1; // mutating map! yay for safety! 
+        (old_line_no, s.to_string()) 
+    }).collect()
 }
 
-pub fn run_with_gui(proof: Vec<String>) -> Result<(), eframe::Error> {
+pub fn run_with_gui(proof: Vec<(usize, String)>) -> Result<(), eframe::Error> {
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
             .with_inner_size([1200.0, 800.0])
@@ -387,7 +396,6 @@ pub fn run_with_gui(proof: Vec<String>) -> Result<(), eframe::Error> {
             .with_decorations(false) // Remove window decorations for full-screen feel
             .with_fullscreen(true)
             .with_resizable(true),
-            // centered: true,
         ..Default::default()
     };
     

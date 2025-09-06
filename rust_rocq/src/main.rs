@@ -34,6 +34,292 @@ struct Args {
 }
 
 const COQ_LSP_STEP_OFFSET: u64 = 100;
+const INIT: u64 = 1;
+const JSON_VERSION : u64 = 1;
+
+// State management for the proof stepper
+#[derive(Debug)]
+struct ProofStepperState {
+    current_step: usize,
+    total_steps: usize,
+    last_goals_state: serde_json::Value,
+    proof_lines: Vec<(usize, String)>,
+    lsp_position_offset: usize, // Track offset caused by invisible transitions
+}
+
+impl ProofStepperState {
+    fn new(proof_lines: Vec<(usize, String)>) -> Self {
+        let total_steps = proof_lines.len();
+        Self {
+            current_step: 0,
+            total_steps,
+            last_goals_state: serde_json::Value::Null,
+            proof_lines,
+            lsp_position_offset: 0,
+        }
+    }
+
+    fn is_complete(&self) -> bool {
+        self.current_step >= self.total_steps
+    }
+
+    fn get_current_tactic(&self) -> Option<&(usize, String)> {
+        self.proof_lines.get(self.current_step)
+    }
+
+    fn get_lsp_line_number(&self) -> usize {
+        if let Some((line_num, _)) = self.get_current_tactic() {
+            *line_num + self.lsp_position_offset
+        } else {
+            0
+        }
+    }
+
+    fn advance_step(&mut self) {
+        if self.current_step < self.total_steps {
+            self.current_step += 1;
+        }
+    }
+
+    fn reset(&mut self) {
+        self.current_step = 0;
+        self.lsp_position_offset = 0;
+        self.last_goals_state = serde_json::Value::Null;
+    }
+
+    fn skip_to_end(&mut self) {
+        self.current_step = self.total_steps;
+    }
+}
+
+// Command handlers
+fn handle_quit() -> bool {
+    println!("Exiting...");
+    true // Signal to exit
+}
+
+fn handle_help() -> bool {
+    println!("\nCommands:");
+    println!("  Enter    - Execute current step");
+    println!("  q        - Quit");
+    println!("  h        - Display this help");
+    println!("  e        - Explain current tactic");
+    println!("  replay   - Replay current note");
+    println!("  reset    - Reset to beginning");
+    println!("  s        - Skip to end");
+    println!("  m        - MIDI test (generate MIDI for current state)");
+    println!("");
+    false
+}
+
+fn handle_explain(state: &ProofStepperState) -> bool {
+    if let Some((_, line_text)) = state.get_current_tactic() {
+        println!("\nExplanation of tactic: {}", line_text);
+        println!("(Generic explanation not available for this tactic)");
+    } else {
+        println!("No current tactic to explain");
+    }
+    println!("");
+    false
+}
+
+fn handle_replay(state: &ProofStepperState, midi_output: &mut MidiOutput) -> bool {
+    println!("\nReplaying current note...");
+    midi_output.stop_all_notes();
+    
+    if state.last_goals_state != serde_json::Value::Null {
+        if let Some((_, current_line_text)) = state.get_current_tactic() {
+            process_tactic_to_midi(midi_output, current_line_text, &state.last_goals_state, Some(Duration::from_millis(2000)));
+        }
+    } else {
+        println!("No current step to replay.");
+    }
+    println!("");
+    false
+}
+
+fn handle_reset(state: &mut ProofStepperState, midi_output: &mut MidiOutput) -> bool {
+    println!("\nResetting to beginning of proof...");
+    midi_output.stop_all_notes();
+    state.reset();
+    false
+}
+
+fn handle_skip(state: &mut ProofStepperState) -> bool {
+    println!("\nSkipping to end of proof...");
+    state.skip_to_end();
+    false
+}
+
+// fn handle_midi_test(midi_output: &mut MidiOutput, initial_goals_json: &serde_json::Value) -> bool {
+//     println!("\nGenerating MIDI test for current state...");
+//     if !initial_goals_json.is_null() {
+//         process_tactic_to_midi(midi_output, "MIDI Test", initial_goals_json, Some(Duration::from_millis(2000)));
+//     } else {
+//         println!("No proof state available for MIDI generation");
+//     }
+//     println!("");
+//     false
+// }
+
+fn handle_execute_step(
+    state: &mut ProofStepperState,
+    midi_output: &mut MidiOutput,
+    lsp_stdin: &mut std::process::ChildStdin,
+    rx: &mpsc::Receiver<serde_json::Value>,
+    document_uri: &str,
+    debug: bool,
+) -> Result<bool, Box<dyn std::error::Error>> {
+    if state.is_complete() {
+        println!("Proof already complete!");
+        return Ok(false);
+    }
+
+    let line_text = state.get_current_tactic().map(|(_, t)| t.clone()).unwrap_or_default();
+    println!("\nExecuting step {}/{}...", state.current_step + 1, state.total_steps);
+
+    // Request goals at the LSP position (accounting for any offset)
+    let lsp_line = state.get_lsp_line_number();
+    let goals_params = json!({
+        "textDocument": {
+            "uri": document_uri,
+            "version": JSON_VERSION
+        },
+        "position": {
+            "line": lsp_line,
+            "character": 0
+        }
+    });
+
+    send_request(
+        lsp_stdin,
+        state.current_step as u64 + COQ_LSP_STEP_OFFSET,
+        "proof/goals",
+        &goals_params,
+    )?;
+
+    // Wait for and process response
+    let mut found_response = false;
+    let mut responses_received = 0;
+
+    while let Ok(message) = rx.recv_timeout(std::time::Duration::from_secs(5)) {
+        if let Some(id) = message.get("id") {
+            if id.as_u64() == Some(state.current_step as u64 + COQ_LSP_STEP_OFFSET) {
+                responses_received += 1;
+
+                if debug {
+                    println!("MESSAGE {}", responses_received);
+                    println!("{:#?}", message);
+                    println!("END MESSAGE");
+                }
+
+                // Check if this is an invisible transition step
+                if is_invisible_transition(&message) {
+                    println!("Detected invisible proof transition, adjusting offset...");
+                    state.lsp_position_offset += 1;
+                    
+                    // Make another request with the adjusted position
+                    let adjusted_goals_params = json!({
+                        "textDocument": {
+                            "uri": document_uri,
+                            "version": JSON_VERSION
+                        },
+                        "position": {
+                            "line": state.get_lsp_line_number(),
+                            "character": 0
+                        }
+                    });
+
+                    send_request(
+                        lsp_stdin,
+                        state.current_step as u64 + COQ_LSP_STEP_OFFSET + 1000, // Different ID
+                        "proof/goals",
+                        &adjusted_goals_params,
+                    )?;
+                    continue;
+                }
+
+                if let Some(result) = message.get("result") {
+                    found_response = true;
+
+                    println!("State after executing '{}':", line_text);
+                    println!("{}", format_goals(result, debug));
+                    
+                    // Store the current goals state for replay
+                    state.last_goals_state = result.clone();
+
+                    // Process this proof state to MIDI
+                    process_tactic_to_midi(midi_output, &line_text, result, None);
+
+                    break;
+                    
+                } else if let Some(error) = message.get("error") {
+                    println!("Error: {}", error);
+                    found_response = true;
+                    break;
+                }
+            }
+            // Handle the adjusted request response
+            else if id.as_u64() == Some(state.current_step as u64 + COQ_LSP_STEP_OFFSET + 1000) {
+                if let Some(result) = message.get("result") {
+                    found_response = true;
+
+                    println!("State after executing '{}':", line_text);
+                    println!("{}", format_goals(result, debug));
+                    
+                    state.last_goals_state = result.clone();
+                    process_tactic_to_midi(midi_output, &line_text, result, None);
+
+                    break;
+                } else if let Some(error) = message.get("error") {
+                    println!("Error: {}", error);
+                    found_response = true;
+                    break;
+                }
+            }
+        }
+    }
+
+    if !found_response {
+        println!("No response received for goals request");
+    }
+
+    println!("\n{}\n", "-".repeat(60));
+
+    // Advance to next step only after successful execution
+    state.advance_step();
+
+    Ok(false)
+}
+
+// Detect invisible proof transition based on the response pattern
+fn is_invisible_transition(message: &serde_json::Value) -> bool {
+    if let Some(result) = message.get("result") {
+        // Check for the pattern: no range, position offset -1, goals unchanged from forall form
+        if let Some(position) = result.get("position") {
+            if let Some(offset) = position.get("offset") {
+                if offset.as_i64() == Some(-1) && result.get("range").is_none() {
+                    // Additional check: if goals contain forall (typical of proof entry)
+                    if let Some(goals_obj) = result.get("goals") {
+                        if let Some(goals_array) = goals_obj.get("goals") {
+                            if let Some(goals_list) = goals_array.as_array() {
+                                return goals_list.iter().any(|goal| {
+                                    if let Some(ty) = goal.get("ty") {
+                                        if let Some(ty_str) = ty.as_str() {
+                                            return ty_str.trim().starts_with("forall");
+                                        }
+                                    }
+                                    false
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    false
+}
 
 // Extract tactic name from a proof line
 fn extract_tactic_name(line: &str) -> String {
@@ -99,14 +385,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     {
         Ok(child) => child,
         Err(e) => {
-            // common error, helps to debug 
             if let Some(2) = e.raw_os_error() {
                 eprintln!("Error: coq-lsp executable not found (OS error 2). Did you run `opam install coq-lsp?`");
                 return Err(Box::new(e));        
             }
-        // generic error reporting 
-        eprintln!("Error spawning coq-lsp process: {}", e);
-        return Err(Box::new(e));
+            eprintln!("Error spawning coq-lsp process: {}", e);
+            return Err(Box::new(e));
         }
     };
 
@@ -127,15 +411,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     });
 
-    // Handle stdout and parse LSP messages - with proper error handling
+    // Handle stdout and parse LSP messages
     let tx_clone = tx.clone();
     thread::spawn(move || {
         let mut reader = BufReader::new(lsp_stdout);
         loop {
-            // Read LSP message headers
             let mut header = String::new();
             match reader.read_line(&mut header) {
-                Ok(0) => break, // EOF
+                Ok(0) => break,
                 Ok(_) => {}
                 Err(e) => {
                     eprintln!("Error reading header: {}", e);
@@ -147,7 +430,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 continue;
             }
 
-            // Parse content length
             let content_length = match header
                 .trim_start_matches("Content-Length:")
                 .trim()
@@ -160,21 +442,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 }
             };
 
-            // Skip the empty line after headers
             let mut empty_line = String::new();
             if let Err(e) = reader.read_line(&mut empty_line) {
                 eprintln!("Error reading empty line: {}", e);
                 break;
             }
 
-            // Read the JSON content
             let mut content = vec![0; content_length];
             if let Err(e) = reader.read_exact(&mut content) {
                 eprintln!("Error reading content: {}", e);
                 break;
             }
 
-            // Parse and send the message
             let message_str = match String::from_utf8(content) {
                 Ok(s) => s,
                 Err(e) => {
@@ -198,7 +477,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     });
 
-    // Initialize the LSP connection with on-demand mode configuration
+    // Initialize LSP connection
     let init_params = json!({
         "processId": null,
         "clientInfo": {"name": "rust-coq-stepper"},
@@ -206,25 +485,22 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         "capabilities": {}
     });
 
-    send_request(&mut lsp_stdin, 1, "initialize", &init_params)?;
+    send_request(&mut lsp_stdin, INIT, "initialize", &init_params)?;
 
-    // Wait for initialize response
     while let Ok(message) = rx.recv() {
         if let Some(id) = message.get("id") {
-            if id.as_u64() == Some(1) && message.get("result").is_some() {
+            if id.as_u64() == Some(INIT) && message.get("result").is_some() {
                 break;
             }
         }
     }
 
     println!("Coq LSP connected successfully");
-
-    // Send initialized notification
     send_notification(&mut lsp_stdin, "initialized", &json!({}))?;
 
+    // Display the proof file
     println!("\nCoq proof to step through:");
     let lines: Vec<&str> = coq_file.lines().collect();
-
     for (i, line) in lines.iter().enumerate() {
         println!("{:2}: {}", i, line);
     }
@@ -236,253 +512,107 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         "textDocument": {
             "uri": document_uri,
             "languageId": "coq",
-            "version": 1,
+            "version": JSON_VERSION, 
             "text": coq_file
         }
     });
 
     send_notification(&mut lsp_stdin, "textDocument/didOpen", &open_params)?;
-
-    // Give the server time to process the document
     thread::sleep(std::time::Duration::from_secs(1));
 
-    // Extract proof steps from the Coq file
+    // Initialize proof stepper state
     let proof_lines = extract_proof_steps(&coq_file);
-    
     if proof_lines.is_empty() {
         println!("No proof steps found in the file. Make sure the file contains a proof with 'Proof.' and 'Qed.' markers.");
         return Ok(());
     }
-    
-    // Auto-play mode: play entire sequence with delays
+
+    // Auto-play mode
     if args.auto_play {
         play_proof_sequence(&proof_lines, &mut midi_output);
         return Ok(());
     }
 
+    let mut state = ProofStepperState::new(proof_lines);
+
+    // Display initial state
     println!("\nInteractive Coq Proof Stepper with MIDI");
     println!("-------------------------------------");
     println!("Press Enter to step through the proof");
-    println!("Type 'q' to quit");
-    println!("Type 'h' for help");
+    println!("Type 'q' to quit, 'h' for help");
     println!("-------------------------------------\n");
 
-    let stdin = io::stdin();
-    let mut user_input = String::new();
+    // // Get initial proof state
+    // let initial_goals_params = json!({
+    //     "textDocument": { "uri": document_uri, "version": JSON_VERSION },
+    //     "position": { "line": 3, "character": 0 }
+    // });
 
-    // Display the initial state before any steps
-    println!("Initial state (before first tactic):");
-    let initial_goals_params = json!({
-        "textDocument": {
-            "uri": document_uri,
-            "version": 1
-        },
-        "position": {
-            "line": 3,
-            "character": 0
-        }
-    });
+    // send_request(&mut lsp_stdin, 99, "proof/goals", &initial_goals_params)?;
 
-    send_request(&mut lsp_stdin, 99, "proof/goals", &initial_goals_params)?;
-
-    // Wait for response and display
-    let mut found_response = false;
-    let mut initial_goals_json = serde_json::Value::Null;
-
-    while let Ok(message) = rx.recv_timeout(std::time::Duration::from_secs(5)) {
-        if let Some(id) = message.get("id") {
-            if id.as_u64() == Some(99) {
-                if let Some(result) = message.get("result") {
-                    println!("{}", format_goals(result, args.debug));
-                    initial_goals_json = result.clone();
-
-                    // Process initial state to MIDI
-                    process_tactic_to_midi(&mut midi_output, "Initial state", result, Some(Duration::from_millis(1000)));
-
-                    found_response = true;
-                    break;
-                } else if let Some(error) = message.get("error") {
-                    println!("Error: {}", error);
-                    found_response = true;
-                    break;
-                }
-            }
-        }
-    }
-
-    if !found_response {
-        println!("No response received for initial goals request");
-    }
+    // let mut initial_goals_json = serde_json::Value::Null;
+    // while let Ok(message) = rx.recv_timeout(std::time::Duration::from_secs(5)) {
+    //     if let Some(id) = message.get("id") {
+    //         if id.as_u64() == Some(99) {
+    //             if let Some(result) = message.get("result") {
+    //                 println!("Initial state (before first tactic):");
+    //                 println!("{}", format_goals(result, args.debug));
+    //                 initial_goals_json = result.clone();
+    //                 process_tactic_to_midi(&mut midi_output, "Initial state", result, Some(Duration::from_millis(1000)));
+    //                 break;
+    //             }
+    //         }
+    //     }
+    // }
 
     println!("\n{}\n", "-".repeat(60));
 
-    // Interactive stepping
-    let mut current_step = 0;
-    let total_steps = proof_lines.len();
-    let mut last_goals_state = serde_json::Value::Null;
+    // Main interaction loop
+    let stdin = io::stdin();
+    let mut user_input = String::new();
 
-    'main_loop: loop {
-        if current_step >= total_steps {
+    loop {
+        if state.is_complete() {
             println!("Proof complete! All steps executed.");
             break;
         }
 
-        let (line_num, line_text) = &proof_lines[current_step];
-
-        // Show the current tactic and prompt
-        println!("Current tactic: {}", line_text);
+        if let Some((_, line_text)) = state.get_current_tactic() {
+            println!("Current tactic: {}", line_text);
+        }
         print!("Press Enter to execute this step, or type a command: ");
         io::stdout().flush()?;
 
-        // Get user input
         user_input.clear();
         stdin.lock().read_line(&mut user_input)?;
         let input = user_input.trim();
 
-        match input {
-            "q" | "quit" | "exit" => {
-                println!("Exiting...");
-                break 'main_loop;
-            }
-            "h" | "help" => {
-                println!("\nCommands:");
-                println!("  Enter    - Execute current step");
-                println!("  q        - Quit");
-                println!("  h        - Display this help");
-                println!("  e        - Explain current tactic");
-                println!("  replay   - Replay current note");
-                println!("  reset    - Reset to beginning");
-                println!("  s        - Skip to end");
-                println!("  m        - MIDI test (generate MIDI for current state)");
-                println!("");
-                continue;
-            }
-            "e" | "explain" => {
-                println!("\nExplanation of tactic: {}", line_text);
-                println!("(Generic explanation not available for this tactic)");
-                println!("");
-                continue;
-            }
-            "replay" => {
-                println!("\nReplaying current note...");
-                // Stop any current notes first
-                midi_output.stop_all_notes();
-                
-                // Replay the current tactic note
-                if last_goals_state != serde_json::Value::Null {
-                    let (_, current_line_text) = &proof_lines[current_step];
-                    // Use the last known goals state for accurate replay
-                    process_tactic_to_midi(&mut midi_output, current_line_text, &last_goals_state, Some(Duration::from_millis(2000)));
-                } else {
-                    println!("No current step to replay.");
-                }
-                println!("");
-                continue;
-            }
-            "reset" => {
-                println!("\nResetting to beginning of proof...");
-                midi_output.stop_all_notes();
-                current_step = 0;
-                continue;
-            }
-            "s" | "skip" => {
-                println!("\nSkipping to end of proof...");
-                current_step = total_steps;
-                continue;
-            }
-            "m" | "midi" => {
-                println!("\nGenerating MIDI test for current state...");
-                // Trigger the MIDI generation with the current state if available
-                if !initial_goals_json.is_null() {
-                    process_tactic_to_midi(&mut midi_output, "MIDI Test", &initial_goals_json, Some(Duration::from_millis(2000)));
-                } else {
-                    println!("No proof state available for MIDI generation");
-                }
-                println!("");
-                continue;
-            }
-            "" => {
-                // Execute the current step
-                println!("\nExecuting step {}/{}...", current_step + 1, total_steps);
-
-                // Request goals at this position using the proof/goals method
-                let goals_params = json!({
-                    "textDocument": {
-                        "uri": document_uri,
-                        "version": 1
-                    },
-                    "position": {
-                        "line": *line_num,
-                        "character": 0
-                    }
-                });
-
-                send_request(
-                    &mut lsp_stdin,
-                    current_step as u64 + COQ_LSP_STEP_OFFSET,
-                    "proof/goals",
-                    &goals_params,
-                )?;
-
-                // Wait for and process response
-                let mut found_response = false;
-
-                while let Ok(message) = rx.recv_timeout(std::time::Duration::from_secs(5)) {
-                    if let Some(id) = message.get("id") {
-                        if id.as_u64() == Some(current_step as u64 + COQ_LSP_STEP_OFFSET) {
-                            println!("MESSAGE");
-                            println!("{:#?}", message);
-                            println!("END MESSAGE");
-                            if let Some(result) = message.get("result") {
-                                found_response = true;
-
-                                println!("State after executing '{}':", line_text);
-                                println!("{}", format_goals(result, args.debug));
-                                
-                                // Store the current goals state for replay
-                                last_goals_state = result.clone();
-
-                                // Process this proof state to MIDI - hold note until next step
-                                process_tactic_to_midi(&mut midi_output, line_text, result, None);
-
-                                break;
-                            } else if let Some(error) = message.get("error") {
-                                println!("Error: {}", error);
-                                found_response = true;
-                                break;
-                            }
-                        }
-                    }
-                }
-
-                if !found_response {
-                    println!("No response received for goals request");
-                }
-
-                println!("\n{}\n", "-".repeat(60));
-
-                // Move to the next step
-                current_step += 1;
-            }
+        let should_exit = match input {
+            "q" | "quit" | "exit" => handle_quit(),
+            "h" | "help" => handle_help(),
+            "e" | "explain" => handle_explain(&state),
+            "replay" => handle_replay(&state, &mut midi_output),
+            "reset" => handle_reset(&mut state, &mut midi_output),
+            "s" | "skip" => handle_skip(&mut state),
+            // "m" | "midi" => handle_midi_test(&mut midi_output, &initial_goals_json),
+            "" => handle_execute_step(&mut state, &mut midi_output, &mut lsp_stdin, &rx, &document_uri, args.debug)?,
             _ => {
                 println!("Unknown command: '{}'. Type 'h' for help.", input);
-                continue;
+                false
             }
+        };
+
+        if should_exit {
+            break;
         }
     }
 
-    // Clean up
-    let close_params = json!({
-        "textDocument": { "uri": document_uri }
-    });
-
+    // Cleanup
+    let close_params = json!({ "textDocument": { "uri": document_uri } });
     send_notification(&mut lsp_stdin, "textDocument/didClose", &close_params)?;
-
-    // Stop all MIDI notes before exiting
     midi_output.stop_all_notes();
 
     println!("Proof session ended.");
-
     Ok(())
 }
 
@@ -536,30 +666,4 @@ fn send_notification(
     stdin.flush()?;
 
     Ok(())
-}
-
-fn request_lsp(curr_step : i64) -> (Vec<String>, Vec<String>) {
-    (todo!(), todo!())
-}
-
-fn step() {
-    // (what_ran, new_proof_state) = request from lsp 
-    // 
-    let proof = todo!(); 
-    let what_ran = todo!();
-    let goals = todo!();
-    let mut curr_step = 0; 
-    let proof_not_over = false;
-    while proof_not_over {
-        disp(&proof, curr_step, &what_ran, &goals);
-        play(&what_ran);
-        curr_step += 1;
-    }
-}
-
-fn disp(proof : &String, curr_step : i64, what_ran : &Vec<String>, goals : &Vec<String>) {
-    // request 
-}
-fn play(what_ran : &Vec<String>) {
-
 }

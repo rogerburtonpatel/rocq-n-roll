@@ -27,7 +27,9 @@ struct Args {
     #[arg(long, help = "Play entire proof automatically with delays")]
     auto_play: bool,
     #[arg(long, help = "Debug mode: Print full response output with each command.")]
-    debug: bool
+    debug: bool,
+    #[arg(long, help = "Run with GUI. Warning: pretty f*ckin sweet")]
+    gui: bool
 }
 
 const COQ_LSP_STEP_OFFSET: u64 = 100;
@@ -539,6 +541,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Auto-play mode
     if args.auto_play {
         play_proof_sequence(&proof_lines, &mut midi_output);
+        return Ok(());
+    }
+
+    if args.gui {
+        // todo: gui steps interactively with a ProofStepperState.
+        // ProofStepperState may be a substruct of RocqVisualizer.
+        // down arrow -> call lsp, get result. play sound based on result. do viz based on result. 
+        // honestly, we want to go up and down. 
+        run_with_gui(proof_lines.iter().map(| (_, l) | l.clone()).collect())?;
         return Ok(());
     }
 

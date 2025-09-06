@@ -7,17 +7,36 @@ use regex::Regex;
 extern crate portmidi as pm;
 use pm::MidiMessage;
 
-static CHANNEL: u8 = 0;
+type Pitch        = u8; 
+type Velocity     = u8;
+type MidiChannel  = u8; 
+type MidiStatus   = u8; 
+type Note         = (Pitch, Velocity);
+type NoteDuration = u64;
+
+const CHANNEL: MidiChannel = 0;
+const NOTE_ON_STATUS  : MidiStatus = 0x90;
+const NOTE_OFF_STATUS : MidiStatus = 0x80;
+
+const OUTPUT_PORT_BUF_SIZE: usize = 1024;
+
+const DEFAULT_NOTE : Note = (55, 60);
+const MAX_PITCH : Pitch = 127;
+
+// Length notes held and unheld for --auto-play
+const AUTOPLAY_NOTE_LENGTH  : NoteDuration = 800;
+const AUTOPLAY_PAUSE_LENGTH : NoteDuration = 200;
+
+// When getting dissonant (bad proof state), how much to play and how long 
+const NUM_DISSONANT_NOTES_IN_CLUSTER: i16 = 4;
+const DISSONANCE_HOLD_TIME: u64 = 500;
 
 // MIDI output wrapper
-
 pub struct MidiOutput {
     context: Option<pm::PortMidi>,
     port_id: Option<i32>,
     enabled: bool,
 }
-
-
 
 impl MidiOutput {
     pub fn new(device_id: Option<i32>) -> Result<Self, Box<dyn std::error::Error>> {
@@ -50,10 +69,9 @@ impl MidiOutput {
         let port_id = self.port_id.unwrap();
         
         if let Ok(device) = context.device(port_id) {
-            if let Ok(mut port) = context.output_port(device, 1024) {
-                // Note on
+            if let Ok(mut port) = context.output_port(device, OUTPUT_PORT_BUF_SIZE) {
                 let note_on = MidiMessage {
-                    status: 0x90 + CHANNEL,
+                    status: NOTE_ON_STATUS + CHANNEL,
                     data1: pitch,
                     data2: velocity,
                     data3: 0,
@@ -92,9 +110,9 @@ impl MidiOutput {
         let port_id = self.port_id.unwrap();
         
         if let Ok(device) = context.device(port_id) {
-            if let Ok(mut port) = context.output_port(device, 1024) {
+            if let Ok(mut port) = context.output_port(device, OUTPUT_PORT_BUF_SIZE) {
                 let note_off = MidiMessage {
-                    status: 0x80 + CHANNEL,
+                    status: NOTE_OFF_STATUS + CHANNEL,
                     data1: pitch,
                     data2: 0,
                     data3: 0,
@@ -114,8 +132,8 @@ impl MidiOutput {
         if let Some(delay) = after_delay {
             thread::sleep(delay);
         }
-        // Send all notes off on this channel
-        for note in 0..128 {
+        
+        for note in 0..=MAX_PITCH {
             self.stop_note(note);
         }
     }
@@ -123,7 +141,7 @@ impl MidiOutput {
 
 // TODO redo this completely with deautomation. 
 // Tactic to (pitch, velocity) mapping
-pub fn create_tactic_midi_map() -> HashMap<&'static str, (u8, u8)> {
+pub fn create_tactic_midi_map() -> HashMap<&'static str, Note> {
     let mut map = HashMap::new();
     
     // Basic tactics - fundamental notes
@@ -184,7 +202,7 @@ pub fn process_tactic_to_midi(
     // Get base note for the tactic
     let (mut pitch, mut velocity) = tactic_map.get(tactic_name.as_str())
         .copied()
-        .unwrap_or((55, 60)); // Default: G3, medium velocity
+        .unwrap_or(DEFAULT_NOTE); // Default: G3, medium velocity
     
     // Modify based on proof state complexity
     if let Some(goals_config) = goals_json.get("goals") {
@@ -193,7 +211,7 @@ pub fn process_tactic_to_midi(
                 let num_goals = goals_array.len();
                 
                 // More goals = higher pitch (urgency)
-                pitch = (pitch as i16 + (num_goals as i16 * 2)).min(127) as u8;
+                pitch = (pitch as i16 + (num_goals as i16 * 2)).min(MAX_PITCH as i16) as u8;
                 
                 // Count total hypotheses for velocity adjustment
                 let mut total_hyps = 0;
@@ -206,7 +224,7 @@ pub fn process_tactic_to_midi(
                 }
                 
                 // More hypotheses = higher velocity (complexity)
-                velocity = (velocity as i16 + (total_hyps as i16 * 3)).min(127) as u8;
+                velocity = (velocity as i16 + (total_hyps as i16 * 3)).min(MAX_PITCH as i16) as u8;
                 
                 println!("[MIDI] Goals: {}, Hypotheses: {}, Final note: {} @ {}", 
                          num_goals, total_hyps, pitch, velocity);
@@ -279,7 +297,7 @@ fn text_of_message(message: &Value) -> String {
 // Play a chord with given intervals
 fn play_chord(midi_output: &MidiOutput, root: u8, intervals: &[u8], velocity: u8) {
     for &interval in intervals {
-        let note = (root as i16 + interval as i16).min(127) as u8;
+        let note = (root as i16 + interval as i16).min(MAX_PITCH as i16) as u8;
         midi_output.play_note(note, velocity, None);
     }
 }
@@ -287,9 +305,9 @@ fn play_chord(midi_output: &MidiOutput, root: u8, intervals: &[u8], velocity: u8
 // Play dissonant cluster for errors
 fn play_dissonant_cluster(midi_output: &MidiOutput, base_pitch: u8) {
     // Play cluster of semitones - very dissonant
-    for i in 0..4 {
-        let note = (base_pitch as i16 + i).min(127) as u8;
-        midi_output.play_note(note, 90, Some(Duration::from_millis(500)));
+    for i in 0..NUM_DISSONANT_NOTES_IN_CLUSTER {
+        let note = (base_pitch as i16 + i).min(MAX_PITCH as i16) as u8;
+        midi_output.play_note(note, 90, Some(Duration::from_millis(DISSONANCE_HOLD_TIME)));
     }
 }
 
@@ -303,13 +321,12 @@ pub fn play_proof_sequence(proof_steps: &[(usize, String)], midi_output: &MidiOu
         let tactic_name = extract_tactic_name(line_text);
         let (pitch, velocity) = tactic_map.get(tactic_name.as_str())
             .copied()
-            .unwrap_or((55, 60));
+            .unwrap_or(DEFAULT_NOTE);
         
         println!("[MIDI] Step {}: {} -> Note {} @ {}", i + 1, line_text, pitch, velocity);
         
-        // Play note for 800ms with 200ms gap
-        midi_output.play_note(pitch, velocity, Some(Duration::from_millis(800)));
-        thread::sleep(Duration::from_millis(200));
+        midi_output.play_note(pitch, velocity, Some(Duration::from_millis(AUTOPLAY_NOTE_LENGTH)));
+        thread::sleep(Duration::from_millis(AUTOPLAY_PAUSE_LENGTH));
     }
     
     println!("[MIDI] Proof sequence complete!");

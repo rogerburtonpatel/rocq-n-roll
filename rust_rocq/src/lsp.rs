@@ -43,7 +43,8 @@ impl RocqLSP {
             let mut reader = BufReader::new(stdout);
             loop {
                 let mut header = String::new();
-                if reader.read_line(&mut header).unwrap_or(0) == 0 {
+
+                if reader.read_line(&mut header).is_err() {
                     break;
                 }
                 if !header.starts_with("Content-Length:") {

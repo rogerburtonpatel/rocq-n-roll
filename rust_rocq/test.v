@@ -3,5 +3,21 @@ Theorem simple_add : forall n : nat, n + 0 = n.
 Proof.   
   intros n.
   rewrite <- plus_n_O.
+  (* shelve. 
+  Unshelve.
+  shelve. 
+  Unshelve.
+  shelve. 
+  Unshelve.
+  shelve. 
+  Unshelve.
+  shelve. 
+  Unshelve.
+  shelve. 
+  Unshelve.
+  shelve. 
+  Unshelve.
+  shelve. 
+  Unshelve. *)
   reflexivity.
 Qed.

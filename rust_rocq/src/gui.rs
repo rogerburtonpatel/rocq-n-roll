@@ -5,6 +5,67 @@ use std::time::{Duration, Instant};
 
 use crate::{midi::process_tactic_to_midi, ProofStepperState};
 
+// Adjust 
+const PROOF_FONT_SIZE    : f32 = 12.0;
+const PROOF_AREA_START_X : f32 = 20.0;
+const PROOF_AREA_START_Y : f32 = 20.0;
+const PROOF_AREA_WIDTH   : f32 = 400.0;
+const PROOF_AREA_HEIGHT  : f32 = 300.0;
+const SPACE_BETWEEN_PROOF_LINES : f32 = 20.0;
+const VISIBLE_PROOF_LINES : usize = 10;
+
+
+
+const PROOF_LINE_HIGHLIGHT_COLOR : (u8, u8, u8) = (255, 255, 100);
+const PROOF_LINE_DEFAULT_COLOR   : (u8, u8, u8) = (200, 200, 200);
+
+
+// Adjust the size of gui trees. 
+const TREE_LENGTH : f32 = 300.0;
+const TREE_DEPTH  : u32 = 50;
+
+
+// Begin Randomized Value Parameters // 
+
+// Characteristics of a tree (number of branches, lifetime on screen, etc.)
+// are randomly selected at runtime between two values. 
+// These values live in this section. 
+// Make them equal to set a static characteristic of a tree. 
+
+// Adjust the display lifetime of a tree before it dissapears. 
+const TREE_LIFETIME_MIN: f32 = 3.0;
+const TREE_LIFETIME_MAX: f32 = 6.0;
+
+// Adjust the number of branches a tree might have. 
+const MIN_TREE_BRANCHES: i32 = 2;
+const MAX_TREE_BRANCHES: i32 = 5;
+
+// Adjust the branch length of a tree. 
+const MIN_BRANCH_LENGTH: f32 = 0.6;
+const MAX_BRANCH_LENGTH: f32 = 0.9;
+
+// End Randomized Value Parameters // 
+
+
+// These values are all relative to the width of the screen. 
+// E.g. a MIN_TREE_START_X of 0.03 means a tree can start no further left 
+// than 0.03 screen-widths from the leftmost screen border. 
+const MIN_TREE_START_X: f32 = 0.03;
+const MAX_TREE_START_X: f32 = 0.9;
+const MIN_TREE_START_Y: f32 = 0.03;
+const MAX_TREE_START_Y: f32 = 0.9;
+
+// Adjust how small trees can get, and how much to reduce branches on each 
+// recursive call to generate_tree_branches. 
+// WARNING: Lowering MIN_TREE_BRANCH LENGTH too much can make really, 
+// REALLY bristly (and expensive) trees. Play around at your own risk. 
+// A good baseline is 
+// MIN_TREE_BRANCH LENGTH = 10.0
+// TREE_BRANCH_REDUCTION_FACTOR = 0.05.
+const MIN_TREE_BRANCH_LENGTH: f32 = 10.0;
+const TREE_BRANCH_REDUCTION_FACTOR: f32 = 0.05;
+
+
 #[derive(Clone)]
 struct TreePattern {
     branches: Vec<Branch>,
@@ -49,7 +110,7 @@ impl RocqVisualizer {
     pub fn new(proof_state: ProofStepperState, _cc: &eframe::CreationContext<'_>) -> Self {
         Self {
             current_line_index: 0,
-            visible_lines: 10,
+            visible_lines: VISIBLE_PROOF_LINES,
             tree_patterns: Vec::new(),
             flicker_message: None,
             last_frame_keys: std::collections::HashSet::new(),
@@ -118,9 +179,10 @@ impl RocqVisualizer {
         let screen_rect = ctx.screen_rect();
         let mut rng = rand::thread_rng();
         
+       
         let origin = Pos2::new(
-            rng.gen_range(screen_rect.width() * 0.3..screen_rect.width() * 0.9),
-            rng.gen_range(screen_rect.height() * 0.3..screen_rect.height() * 0.9),
+            rng.gen_range(screen_rect.width()  * MIN_TREE_START_X..screen_rect.width()  * MAX_TREE_START_X),
+            rng.gen_range(screen_rect.height() * MIN_TREE_START_Y..screen_rect.height() * MAX_TREE_START_Y),
         );
         
         let color = Color32::from_rgb(
@@ -129,41 +191,46 @@ impl RocqVisualizer {
             rng.gen_range(100..255),
         );
         
+
+        let tree_life_duration = rng.gen_range(TREE_LIFETIME_MIN..TREE_LIFETIME_MAX);
+        
         let tree = TreePattern {
-            branches: self.generate_tree_branches(origin, 50, 300.0),
+            branches: self.generate_tree_branches(origin, TREE_DEPTH, TREE_LENGTH),
             color,
             birth_time: Instant::now(),
-            life_duration: Duration::from_secs_f32(rng.gen_range(3.0..6.0)),
+            life_duration: Duration::from_secs_f32(tree_life_duration),
         };
         
         self.tree_patterns.push(tree);
     }
 
     fn generate_tree_branches(&self, start: Pos2, depth: u32, length: f32) -> Vec<Branch> {
-        if depth == 0 || length < 10.0 {
+        if depth == 0 || length < MIN_TREE_BRANCH_LENGTH {
             return Vec::new();
         }
         
         let mut rng = rand::thread_rng();
         let mut branches = Vec::new();
         
-        let num_branches = rng.gen_range(2..5);
+
+        let num_branches = rng.gen_range(MIN_TREE_BRANCHES..MAX_TREE_BRANCHES);
         
         for _ in 0..num_branches {
             let angle = rng.gen_range(0.0..std::f32::consts::TAU);
-            let branch_length = length * rng.gen_range(0.6..0.9);
+
+            let branch_length = length * rng.gen_range(MIN_BRANCH_LENGTH..MAX_BRANCH_LENGTH);
             
             let end = Pos2::new(
                 start.x + angle.cos() * branch_length,
                 start.y + angle.sin() * branch_length,
             );
             
-            let children = self.generate_tree_branches(end, depth - 1, branch_length * 0.7);
+            let children = self.generate_tree_branches(end, depth - 1, branch_length * 0.8);
             
             branches.push(Branch {
                 start,
                 end,
-                thickness: length * 0.05,
+                thickness: length * TREE_BRANCH_REDUCTION_FACTOR,
                 children,
             });
         }
@@ -207,8 +274,8 @@ impl RocqVisualizer {
 
     fn render_proof_text(&self, ctx: &egui::Context) {
         let proof_area = Rect::from_min_size(
-            Pos2::new(20.0, 20.0),
-            Vec2::new(400.0, 300.0),
+            Pos2::new(PROOF_AREA_START_X, PROOF_AREA_START_Y),
+            Vec2::new(PROOF_AREA_WIDTH, PROOF_AREA_HEIGHT),
         );
         
         let painter = ctx.layer_painter(egui::LayerId::new(egui::Order::Foreground, egui::Id::new("proof_text")));
@@ -217,20 +284,25 @@ impl RocqVisualizer {
         let end_line = (start_line + self.visible_lines).min(self.proof_state.proof_lines.len());
         
         for (i, line_idx) in (start_line..end_line).enumerate() {
-            let y_offset = i as f32 * 20.0;
+            let y_offset = i as f32 * SPACE_BETWEEN_PROOF_LINES;
             let pos = Pos2::new(proof_area.min.x, proof_area.min.y + y_offset);
             
             let color = if line_idx == self.current_line_index {
-                Color32::from_rgb(255, 255, 100) // Highlight current line
+                // Highlight current line
+                Color32::from_rgb(PROOF_LINE_HIGHLIGHT_COLOR.0,
+                                  PROOF_LINE_HIGHLIGHT_COLOR.1, 
+                                  PROOF_LINE_HIGHLIGHT_COLOR.2) 
             } else {
-                Color32::from_rgb(200, 200, 200)
+                Color32::from_rgb(PROOF_LINE_DEFAULT_COLOR.0,
+                                  PROOF_LINE_DEFAULT_COLOR.1, 
+                                  PROOF_LINE_DEFAULT_COLOR.2)
             };
             
             painter.text(
                 pos,
                 egui::Align2::LEFT_TOP,
                 &self.proof_state.proof_lines[line_idx].1,
-                FontId::monospace(12.0),
+                FontId::monospace(PROOF_FONT_SIZE),
                 color,
             );
         }

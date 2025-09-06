@@ -37,6 +37,7 @@ struct Args {
 }
 
 const JSON_VERSION: u64 = 1;
+const MIDI_TEST_NOTE_DURATION_DEFAULT: u64 = 1100;
 
 // State management for the proof stepper, with careful consideration 
 // for the LSP's 'invisible step' when entering Proof Mode. 
@@ -135,7 +136,7 @@ fn handle_replay(state: &mut ProofStepperState) -> bool {
     
     if state.last_goals_state != serde_json::Value::Null {
         if let Some((_, current_line_text)) = state.get_current_tactic() {
-            process_tactic_to_midi(&state.midi_output, current_line_text, &last_goals_state, Some(Duration::from_millis(2000)));
+            process_tactic_to_midi(&state.midi_output, current_line_text, &last_goals_state, Some(Duration::from_millis(MIDI_TEST_NOTE_DURATION_DEFAULT)));
         }
     } else {
         println!("No current step to replay.");
@@ -160,7 +161,7 @@ fn handle_skip(state: &mut ProofStepperState) -> bool {
 
 fn handle_midi_test(midi_output: &mut MidiOutput) -> bool {
     println!("\nTesting MIDI Out: Emitting NOTE ON...");
-    midi_output.play_note(90, 100, Some(Duration::from_millis(1100)));
+    midi_output.play_note(90, 100, Some(Duration::from_millis(MIDI_TEST_NOTE_DURATION_DEFAULT)));
     println!("");
     false 
 }

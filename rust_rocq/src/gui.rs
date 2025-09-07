@@ -129,139 +129,14 @@ impl RocqVisualizer {
                 match key {
                     egui::Key::ArrowDown => {
                         if self.current_line_index < self.proof_state.proof_lines.len().saturating_sub(1) {
-                            
-                                let line_text = self.proof_state.get_current_tactic().map(|(_, t)| t.clone()).unwrap_or_default();
-    println!("\nExecuting step {}/{}...", self.proof_state.current_step + 1, self.proof_state.total_steps);
-
-    // Request goals at the LSP position (accounting for any offset)
-    let lsp_line = self.proof_state.get_lsp_line_number(&self.proof_state.rocq_lsp);
-    let goals_params = json!({
-        "textDocument": {
-            "uri": self.proof_state.document_uri,
-            "version": JSON_VERSION
-        },
-        "position": {
-            "line": lsp_line,
-            "character": 0
-        }
-    });
-
-    let request_id = self.proof_state.current_step as u64 + lsp::COQ_LSP_STEP_OFFSET;
-    
-    if let Err(e) = self.proof_state.rocq_lsp.send_request(request_id, "proof/goals", &goals_params) {
-        eprintln!("Error on sending request to Rocq lsp: {e}");
-    };
-
-    // Wait for and process response
-    let mut found_response = false;
-
-    while let Some(message) = self.proof_state.rocq_lsp.recv(Duration::from_secs(5)) {
-        if let Some(id) = message.get("id") {
-            const INVIS_STEP_OFFSET: u64 = 1000;
-            if id.as_u64() == Some(request_id) {
-
-                // if debug {
-                //     println!("MESSAGE {}", responses_received);
-                //     println!("{:#?}", message);
-                //     println!("END MESSAGE");
-                // }
-
-                // Check if this is an invisible transition step
-                if is_invisible_transition(&message) {
-                    println!("Detected invisible proof transition, adjusting offset...");
-                    self.proof_state.rocq_lsp.lsp_position_offset += 1;
-                    
-                    // Make another request with the adjusted position
-                    let adjusted_goals_params = json!({
-                        "textDocument": {
-                            "uri": self.proof_state.document_uri,
-                            "version": JSON_VERSION
-                        },
-                        "position": {
-                            "line": self.proof_state.get_lsp_line_number(&self.proof_state.rocq_lsp),
-                            "character": 0
-                        }
-                    });
-
-                    if let Err(e) = self.proof_state.rocq_lsp.send_request(
-                        request_id + INVIS_STEP_OFFSET,
-                        "proof/goals",
-                        &adjusted_goals_params,
-                    ) {
-                    eprintln!("Error on sending request to Rocq lsp: {e}");
-                    }
-                    continue;
-                }
-
-                if let Some(result) = message.get("result") {
-                    found_response = true;
-
-                    println!("self.proof_state after executing '{}':", line_text);
-                    println!("{}", format_goals(result, false));
-                    
-                    // Store the current goals self.proof_state for replay
-                    self.proof_state.last_goals_state = result.clone();
-
-                    // Process this proof self.proof_state to MIDI
-                    process_tactic_to_midi(&self.proof_state.midi_output, &line_text, result, 
-                    Some(Duration::from_millis(MIDI_TEST_NOTE_DURATION_DEFAULT)));
-
-                    break;
-                    
-                } else if let Some(error) = message.get("error") {
-                    println!("Error: {}", error);
-                    found_response = true;
-                    break;
-                }
-            }
-            // Handle the adjusted request response
-            else if id.as_u64() == Some(request_id + INVIS_STEP_OFFSET) {
-                if let Some(result) = message.get("result") {
-                    found_response = true;
-
-                    println!("self.proof_state after executing '{}':", line_text);
-                    println!("{}", format_goals(result, false));
-                    
-                    self.proof_state.last_goals_state = result.clone();
-                    process_tactic_to_midi(&self.proof_state.midi_output, &line_text, result, 
-                    Some(Duration::from_millis(MIDI_TEST_NOTE_DURATION_DEFAULT)));
-
-                    break;
-                } else if let Some(error) = message.get("error") {
-                    println!("Error: {}", error);
-                    found_response = true;
-                    break;
-                }
-            }
-        }
-    }
-
-    if !found_response {
-        println!("No response received for goals request");
-    }
-
-    println!("\n{}\n", "-".repeat(60));
-
-    // Advance to next step only after successful execution
-    self.proof_state.advance_step();                            
-                            
-                            // send request to lsp 
-                            // need:     
-                            // lsp_stdin: &mut std::process::ChildStdin, (tricky- get mut ref in through RocqVisualizer)
-                            // rx: &mpsc::Receiver<serde_json::Value> (same, get ref in through RocqVisualizer),
-                            // document_uri: &str, (not too bad)
-
-
-                            // update proof with response 
-
-                            // process_tactic_to_midi(midi_output, &line_text, result, None);
-                            // 
-
-
-
+                            // TODO: sync sound and viz with actual proof 
+                            // let (new_proof_state, ...) = self.req_lsp_and_play_midi();
+                            // self.proof_state.advance_step(new_proof_state); // sm like this 
+                            // self.spawn_tree_pattern(ctx); // base off of new state 
+                            self.req_lsp_and_play_midi();
+                            self.proof_state.advance_step();                            
                             self.current_line_index += 1;
                             self.spawn_tree_pattern(ctx);
-                            // TODO 2: lsp update via display functions
                         }
                     }
                     egui::Key::A => {
@@ -292,6 +167,122 @@ impl RocqVisualizer {
         self.last_frame_keys = current_keys;
     }
 
+    fn req_lsp_and_play_midi(&mut self) {
+        let line_text = self.proof_state.get_current_tactic().map(|(_, t)| t.clone()).unwrap_or_default();
+        println!("\nExecuting step {}/{}...", self.proof_state.current_step + 1, self.proof_state.total_steps);
+    
+        // Request goals at the LSP position (accounting for any offset)
+        let lsp_line = self.proof_state.get_lsp_line_number(&self.proof_state.rocq_lsp);
+        let goals_params = json!({
+            "textDocument": {
+                "uri": self.proof_state.document_uri,
+                "version": JSON_VERSION
+            },
+            "position": {
+                "line": lsp_line,
+                "character": 0
+            }
+        });
+    
+        let request_id = self.proof_state.current_step as u64 + lsp::COQ_LSP_STEP_OFFSET;
+    
+        if let Err(e) = self.proof_state.rocq_lsp.send_request(request_id, "proof/goals", &goals_params) {
+            eprintln!("Error on sending request to Rocq lsp: {e}");
+        };
+    
+        // Wait for and process response
+        let mut found_response = false;
+    
+        while let Some(message) = self.proof_state.rocq_lsp.recv(Duration::from_secs(5)) {
+            if let Some(id) = message.get("id") {
+                const INVIS_STEP_OFFSET: u64 = 1000;
+                if id.as_u64() == Some(request_id) {
+    
+                    // if debug {
+                    //     println!("MESSAGE {}", responses_received);
+                    //     println!("{:#?}", message);
+                    //     println!("END MESSAGE");
+                    // }
+    
+                    // Check if this is an invisible transition step
+                    if is_invisible_transition(&message) {
+                        println!("Detected invisible proof transition, adjusting offset...");
+                        self.proof_state.rocq_lsp.lsp_position_offset += 1;
+                
+                        // Make another request with the adjusted position
+                        let adjusted_goals_params = json!({
+                            "textDocument": {
+                                "uri": self.proof_state.document_uri,
+                                "version": JSON_VERSION
+                            },
+                            "position": {
+                                "line": self.proof_state.get_lsp_line_number(&self.proof_state.rocq_lsp),
+                                "character": 0
+                            }
+                        });
+    
+                        if let Err(e) = self.proof_state.rocq_lsp.send_request(
+                            request_id + INVIS_STEP_OFFSET,
+                            "proof/goals",
+                            &adjusted_goals_params,
+                        ) {
+                        eprintln!("Error on sending request to Rocq lsp: {e}");
+                        }
+                        continue;
+                    }
+    
+                    if let Some(result) = message.get("result") {
+                        found_response = true;
+    
+                        println!("self.proof_state after executing '{}':", line_text);
+                        println!("{}", format_goals(result, false));
+                
+                        // Store the current goals self.proof_state for replay
+                        self.proof_state.last_goals_state = result.clone();
+    
+                        // Process this proof self.proof_state to MIDI
+                        process_tactic_to_midi(&self.proof_state.midi_output, &line_text, result, 
+                        Some(Duration::from_millis(MIDI_TEST_NOTE_DURATION_DEFAULT)));
+    
+                        break;
+                
+                    } else if let Some(error) = message.get("error") {
+                        println!("Error: {}", error);
+                        found_response = true;
+                        break;
+                    }
+                }
+                // Handle the adjusted request response
+                else if id.as_u64() == Some(request_id + INVIS_STEP_OFFSET) {
+                    if let Some(result) = message.get("result") {
+                        found_response = true;
+    
+                        println!("self.proof_state after executing '{}':", line_text);
+                        println!("{}", format_goals(result, false));
+                
+                        self.proof_state.last_goals_state = result.clone();
+                        process_tactic_to_midi(&self.proof_state.midi_output, &line_text, result, 
+                        Some(Duration::from_millis(MIDI_TEST_NOTE_DURATION_DEFAULT)));
+    
+                        break;
+                    } else if let Some(error) = message.get("error") {
+                        println!("Error: {}", error);
+                        found_response = true;
+                        break;
+                    }
+                }
+            }
+        }
+    
+        if !found_response {
+            println!("No response received for goals request");
+        }
+    
+        println!("\n{}\n", "-".repeat(60));
+    
+        // Advance to next step only after successful execution
+    }
+    
     fn show_flicker_message(&mut self, text: String) {
         self.flicker_message = Some(FlickerMessage {
             text,

@@ -3,6 +3,7 @@
 // lsp to gui 
 // midi off fade out- stop_all_notes
 
+use clap::builder::Str;
 use clap::Parser;
 use serde_json::json;
 use std::fs;
@@ -47,6 +48,7 @@ pub struct ProofStepperState {
     total_steps: usize,
     last_goals_state: serde_json::Value,
     proof_lines: Vec<(usize, String)>,
+    document_uri: String,
 
     // MIDI - would be nice to keep external, but Rust's impl rules demand we 
     // pass it in via RocqVisualizer, which MIDI should _definitely_ not be a 
@@ -56,12 +58,16 @@ pub struct ProofStepperState {
 }
 
 impl ProofStepperState {
-    fn new(proof_lines: Vec<(usize, String)>, midi_device: MidiOutput, rocq_lsp: RocqLSP) -> Self {
+    fn new(proof_lines: Vec<(usize, String)>, 
+           document_uri: String,
+           midi_device: MidiOutput, 
+           rocq_lsp: RocqLSP) -> Self {
         Self {
             current_step: 0,
             total_steps: proof_lines.len(),
             last_goals_state: serde_json::Value::Null,
             proof_lines,
+            document_uri,
             midi_output: midi_device,
             rocq_lsp: rocq_lsp,
         }
@@ -168,7 +174,6 @@ fn handle_midi_test(midi_output: &mut MidiOutput) -> bool {
 
 fn handle_execute_step(
     state: &mut ProofStepperState,
-    document_uri: &str,
     debug: bool,
 ) -> Result<bool, Box<dyn std::error::Error>> {
     if state.is_complete() {
@@ -183,7 +188,7 @@ fn handle_execute_step(
     let lsp_line = state.get_lsp_line_number(&state.rocq_lsp);
     let goals_params = json!({
         "textDocument": {
-            "uri": document_uri,
+            "uri": state.document_uri,
             "version": JSON_VERSION
         },
         "position": {
@@ -219,7 +224,7 @@ fn handle_execute_step(
                     // Make another request with the adjusted position
                     let adjusted_goals_params = json!({
                         "textDocument": {
-                            "uri": document_uri,
+                            "uri": state.document_uri,
                             "version": JSON_VERSION
                         },
                         "position": {
@@ -246,7 +251,8 @@ fn handle_execute_step(
                     state.last_goals_state = result.clone();
 
                     // Process this proof state to MIDI
-                    process_tactic_to_midi(&state.midi_output, &line_text, result, None);
+                    process_tactic_to_midi(&state.midi_output, &line_text, result, 
+                    Some(Duration::from_millis(MIDI_TEST_NOTE_DURATION_DEFAULT)));
 
                     break;
                     
@@ -265,7 +271,8 @@ fn handle_execute_step(
                     println!("{}", format_goals(result, debug));
                     
                     state.last_goals_state = result.clone();
-                    process_tactic_to_midi(&state.midi_output, &line_text, result, None);
+                    process_tactic_to_midi(&state.midi_output, &line_text, result, 
+                    Some(Duration::from_millis(MIDI_TEST_NOTE_DURATION_DEFAULT)));
 
                     break;
                 } else if let Some(error) = message.get("error") {
@@ -438,7 +445,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     }
 
-    let mut state = ProofStepperState::new(proof_lines, midi_output, lsp);
+    let mut state = ProofStepperState::new(proof_lines, document_uri, midi_output, lsp);
 
     if args.gui {
         // todo: gui steps interactively with a ProofStepperState.
@@ -486,7 +493,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             "reset" => handle_reset(&mut state),
             "s" | "skip" => handle_skip(&mut state),
             "m" | "midi" => handle_midi_test(&mut state.midi_output),
-            "" => handle_execute_step(&mut state, &document_uri, args.debug)?,
+            "" => handle_execute_step(&mut state, args.debug)?,
             _ => {
                 println!("Unknown command: '{}'. Type 'h' for help.", input);
                 false
@@ -499,7 +506,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     // Cleanup
-    let close_params = json!({ "textDocument": { "uri": document_uri } });
+    let close_params = json!({ "textDocument": { "uri": state.document_uri } });
     state.rocq_lsp.send_notification("textDocument/didClose", &close_params)?;
     println!("Proof session ended.");
     println!("Press any key to stop all notes and exit.");

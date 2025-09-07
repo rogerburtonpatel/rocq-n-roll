@@ -1,23 +1,10 @@
 Require Import Stdlib.Arith.Arith.
 Theorem simple_add : forall n : nat, n + 0 = n.
+Set Info Auto. 
+Theorem simple_add : forall n : nat, n + 0 = n /\ 0 + n = n.
+
 Proof.   
-  intros n.
-  rewrite <- plus_n_O.
-  (* shelve. 
-  Unshelve.
-  shelve. 
-  Unshelve.
-  shelve. 
-  Unshelve.
-  shelve. 
-  Unshelve.
-  shelve. 
-  Unshelve.
-  shelve. 
-  Unshelve.
-  shelve. 
-  Unshelve.
-  shelve. 
-  Unshelve. *)
-  reflexivity.
+  split. 
+  - auto. 
+  - auto. 
 Qed.

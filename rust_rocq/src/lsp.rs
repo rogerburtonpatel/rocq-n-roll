@@ -92,6 +92,17 @@ impl RocqLSP {
             }
         }
         self.send_notification("initialized", &json!({}))?;
+
+        let config =  &json!({
+                "coq-lsp": {
+                    "mem_stats": true,
+                    "check_only_on_request": false,
+                    "messages_follow_goal": true,
+                    "show_coq_info_messages": true
+                }
+        });
+    self.send_notification("workspace/didChangeConfiguration", &config)?;
+
         Ok(())
     }
 

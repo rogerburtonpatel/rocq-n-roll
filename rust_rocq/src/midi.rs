@@ -64,7 +64,6 @@ impl MidiOutput {
         if !self.enabled || self.context.is_none() || self.port_id.is_none() {
             return;
         }
-        
         let context = self.context.as_ref().unwrap();
         let port_id = self.port_id.unwrap();
         
@@ -84,18 +83,18 @@ impl MidiOutput {
                 
                 // Hold for specified duration or until manually stopped
                 if let Some(duration) = hold_duration {
-                    thread::sleep(duration);
-                    
-                    let note_off = MidiMessage {
-                        status: 0x80 + CHANNEL,
-                        data1: pitch,
-                        data2: 0,
-                        data3: 0,
-                    };
-                    
-                    if let Err(e) = port.write_message(note_off) {
-                        eprintln!("MIDI error: {}", e);
-                    }
+                    // TODO Midi as seperate thread for good holding
+                    // thread::sleep(duration);
+                    println!("stop");
+                    // let note_off = MidiMessage {
+                    //             status: NOTE_OFF_STATUS + CHANNEL,
+                    //             data1: pitch,
+                    //             data2: 0,
+                    //             data3: 0,
+                    //         };
+                    // if let Err(e) = port.write_message(note_off) {
+                    //     eprintln!("MIDI error: {}", e);
+                    // }
                 }
             }
         }
@@ -105,23 +104,22 @@ impl MidiOutput {
         if !self.enabled || self.context.is_none() || self.port_id.is_none() {
             return;
         }
-        
+
         let context = self.context.as_ref().unwrap();
         let port_id = self.port_id.unwrap();
         
         if let Ok(device) = context.device(port_id) {
-            if let Ok(mut port) = context.output_port(device, OUTPUT_PORT_BUF_SIZE) {
-                let note_off = MidiMessage {
-                    status: NOTE_OFF_STATUS + CHANNEL,
-                    data1: pitch,
-                    data2: 0,
-                    data3: 0,
-                };
-                
-                if let Err(e) = port.write_message(note_off) {
-                    eprintln!("MIDI error: {}", e);
-                }
-            }
+                if let Ok(mut port) = context.output_port(device, OUTPUT_PORT_BUF_SIZE) {
+                    let note_off = MidiMessage {
+                        status: NOTE_OFF_STATUS + CHANNEL,
+                        data1: pitch,
+                        data2: 0,
+                        data3: 0,
+                    };
+                    if let Err(e) = port.write_message(note_off) {
+                        eprintln!("MIDI error: {}", e);
+                    }
+            }  
         }
     }
     
@@ -236,7 +234,8 @@ pub fn process_tactic_to_midi(
     midi_output.play_note(pitch, velocity, hold_duration);
     
     // Add harmonic context based on proof state
-    play_harmonic_context(midi_output, goals_json, pitch);
+
+    // play_harmonic_context(midi_output, goals_json, pitch);
 }
 
 // TODO change this completely. do it based on diff with last goal. 
@@ -327,6 +326,7 @@ pub fn play_proof_sequence(proof_steps: &[(usize, String)], midi_output: &MidiOu
         
         midi_output.play_note(pitch, velocity, Some(Duration::from_millis(AUTOPLAY_NOTE_LENGTH)));
         thread::sleep(Duration::from_millis(AUTOPLAY_PAUSE_LENGTH));
+        midi_output.stop_all_notes(None);
     }
     
     println!("[MIDI] Proof sequence complete!");

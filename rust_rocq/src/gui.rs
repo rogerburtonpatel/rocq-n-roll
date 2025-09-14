@@ -7,7 +7,7 @@ use std::time::{Duration, Instant};
 use crate::{formatting::format_goals, is_invisible_transition, lsp, midi::process_tactic_to_midi, ProofStepperState, JSON_VERSION, MIDI_TEST_NOTE_DURATION_DEFAULT};
 
 // Adjust 
-const PROOF_FONT_SIZE    : f32 = 12.0;
+const PROOF_FONT_SIZE    : f32 = 14.0;
 const PROOF_AREA_START_X : f32 = 20.0;
 const PROOF_AREA_START_Y : f32 = 20.0;
 const PROOF_AREA_WIDTH   : f32 = 400.0;
@@ -95,7 +95,6 @@ pub struct RocqVisualizer {
     proof_state: ProofStepperState,
 
     // Proof text management
-    current_line_index: usize, // TODO replace all instances with proof_state.curr_line
     visible_lines: usize,
     
     // Visual effects
@@ -110,7 +109,6 @@ pub struct RocqVisualizer {
 impl RocqVisualizer {
     pub fn new(proof_state: ProofStepperState, _cc: &eframe::CreationContext<'_>) -> Self {
         Self {
-            current_line_index: 0,
             visible_lines: VISIBLE_PROOF_LINES,
             tree_patterns: Vec::new(),
             flicker_message: None,
@@ -128,15 +126,23 @@ impl RocqVisualizer {
             if !self.last_frame_keys.contains(key) {
                 match key {
                     egui::Key::ArrowDown => {
-                        if self.current_line_index < self.proof_state.proof_lines.len().saturating_sub(1) {
+                        if self.proof_state.current_step < self.proof_state.total_steps.saturating_sub(1) {
                             // TODO: sync sound and viz with actual proof 
                             // let (new_proof_state, ...) = self.req_lsp_and_play_midi();
                             // self.proof_state.advance_step(new_proof_state); // sm like this 
                             // self.spawn_tree_pattern(ctx); // base off of new state 
-                            self.req_lsp_and_play_midi();
-                            self.proof_state.advance_step();                            
-                            self.current_line_index += 1;
+                            self.req_lsp_and_play_midi(); 
+                            self.proof_state.advance_step();
                             self.spawn_tree_pattern(ctx);
+                            if self.proof_state.total_steps != self.proof_state.total_steps {
+                            self.show_flicker_message(
+                                ["INEQUALITY: self.proof_state.proof_lines.len = ".to_string(),
+                                self.proof_state.total_steps.to_string(),
+                                "self.proof_state.total_steps = ".to_string(),
+                                self.proof_state.total_steps.to_string(),
+                                ].concat(),
+                            )
+                            }
                         }
                     }
                     egui::Key::A => {
@@ -150,6 +156,9 @@ impl RocqVisualizer {
                     }
                     egui::Key::F => {
                         self.show_flicker_message("Frank Pfenning".to_string());
+                    }
+                    egui::Key::G => {
+                        self.show_flicker_message("SUPER HOTT".to_string());
                     }
                     egui::Key::Escape => {
                             let close_params = json!({ "textDocument": { "uri": self.proof_state.document_uri } });
@@ -197,7 +206,7 @@ impl RocqVisualizer {
             if let Some(id) = message.get("id") {
                 const INVIS_STEP_OFFSET: u64 = 1000;
                 if id.as_u64() == Some(request_id) {
-    
+                    // TODO compose debug and gui mode
                     // if debug {
                     //     println!("MESSAGE {}", responses_received);
                     //     println!("{:#?}", message);
@@ -396,14 +405,14 @@ impl RocqVisualizer {
         
         let painter = ctx.layer_painter(egui::LayerId::new(egui::Order::Foreground, egui::Id::new("proof_text")));
         
-        let start_line = self.current_line_index.saturating_sub(self.visible_lines / 2);
-        let end_line = (start_line + self.visible_lines).min(self.proof_state.proof_lines.len());
+        let start_line = self.proof_state.current_step.saturating_sub(self.visible_lines / 2);
+        let end_line = (start_line + self.visible_lines).min(self.proof_state.total_steps);
         
         for (i, line_idx) in (start_line..end_line).enumerate() {
             let y_offset = i as f32 * SPACE_BETWEEN_PROOF_LINES;
             let pos = Pos2::new(proof_area.min.x, proof_area.min.y + y_offset);
             
-            let color = if line_idx == self.current_line_index {
+            let color = if line_idx == self.proof_state.current_step {
                 // Highlight current line
                 Color32::from_rgb(PROOF_LINE_HIGHLIGHT_COLOR.0,
                                   PROOF_LINE_HIGHLIGHT_COLOR.1, 

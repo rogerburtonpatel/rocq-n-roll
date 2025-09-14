@@ -8,3 +8,11 @@ Proof.
   - auto. 
   - auto. 
 Qed.
+
+Theorem silly : forall n : nat, n = n.
+Proof. 
+  simpl. 
+  simpl. 
+  simpl. 
+  reflexivity. 
+Qed. 

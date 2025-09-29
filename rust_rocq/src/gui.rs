@@ -2,7 +2,7 @@ use eframe::egui;
 use egui::{Color32, FontId, Pos2, Rect, Stroke, Vec2};
 use rand::Rng;
 use serde_json::json;
-use std::time::{Duration, Instant};
+use std::{thread, time::{Duration, Instant}};
 
 use crate::{formatting::format_goals, is_invisible_transition, lsp, midi::process_tactic_to_midi, ProofStepperState, JSON_VERSION, MIDI_TEST_NOTE_DURATION_DEFAULT};
 
@@ -127,10 +127,6 @@ impl RocqVisualizer {
                 match key {
                     egui::Key::ArrowDown => {
                         if self.proof_state.current_step < self.proof_state.total_steps.saturating_sub(1) {
-                            // TODO: sync sound and viz with actual proof 
-                            // let (new_proof_state, ...) = self.req_lsp_and_play_midi();
-                            // self.proof_state.advance_step(new_proof_state); // sm like this 
-                            // self.spawn_tree_pattern(ctx); // base off of new state 
                             self.req_lsp_and_play_midi(); 
                             self.proof_state.advance_step();
                             self.spawn_tree_pattern(ctx);
@@ -370,7 +366,8 @@ impl RocqVisualizer {
             base_color.b(),
             (alpha * 255.0) as u8,
         );
-        
+
+        // thread::sleep(Duration::new(0, 1_000_000));
         painter.line_segment(
             [branch.start, branch.end],
             Stroke::new(branch.thickness, color),
@@ -423,10 +420,16 @@ impl RocqVisualizer {
                                   PROOF_LINE_DEFAULT_COLOR.2)
             };
             
+            let line_with_num = 
+                format!("{:2}: {}", line_idx, 
+                        &self.proof_state.proof_lines[line_idx].1);
+
+
             painter.text(
                 pos,
                 egui::Align2::LEFT_TOP,
-                &self.proof_state.proof_lines[line_idx].1,
+                // line_idx.to_string()
+                line_with_num,
                 FontId::monospace(PROOF_FONT_SIZE),
                 color,
             );

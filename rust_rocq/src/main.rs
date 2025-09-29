@@ -1,9 +1,7 @@
 // TODOS: 
-// clean up rest of constants & magic nums 
-// lsp to gui 
-// midi off fade out- stop_all_notes
+// relate proofs more heavilty to lsp output 
+// gui trees build incrementally 
 
-use clap::builder::Str;
 use clap::Parser;
 use serde_json::json;
 use std::fs;
@@ -365,12 +363,13 @@ pub fn extract_proof_steps(coq_content: &str) -> Vec<(usize, String)> {
             || trimmed.starts_with("Qed")
             || trimmed.starts_with("Defined")
         {
-            break;
+            
         }
 
         if !trimmed.is_empty() {
             proof_steps.push((line_num, trimmed.to_string()));
         }
+
     }
 
     proof_steps

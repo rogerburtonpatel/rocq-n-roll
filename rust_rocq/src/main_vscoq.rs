@@ -7,18 +7,17 @@
 use clap::Parser;
 use serde_json::json;
 use std::fs;
-use std::io::{self, BufRead, BufReader, Read, Write};
+use std::io::{self, BufRead, Write};
 use std::path::PathBuf;
-use std::process::{Command, Stdio};
-use std::sync::mpsc;
-use std::thread;
 use std::time::Duration;
 
 mod midi;
 mod formatting;
+mod lsp;
 
 use midi::{MidiOutput, process_tactic_to_midi, play_proof_sequence};
 use formatting::format_goals;
+use lsp::VscoqLSP;
 
 #[derive(Parser)]
 #[command(name = "rust_rocq")]
@@ -44,8 +43,7 @@ pub struct ProofStepperState {
     proof_lines: Vec<(usize, String)>,
     document_uri: String,
     midi_output: MidiOutput,
-    lsp_stdin: std::process::ChildStdin,
-    message_rx: mpsc::Receiver<serde_json::Value>,
+    vscoq_lsp: VscoqLSP,
 }
 
 impl ProofStepperState {
@@ -53,8 +51,7 @@ impl ProofStepperState {
         proof_lines: Vec<(usize, String)>,
         document_uri: String,
         midi_output: MidiOutput,
-        lsp_stdin: std::process::ChildStdin,
-        message_rx: mpsc::Receiver<serde_json::Value>,
+        vscoq_lsp: VscoqLSP,
     ) -> Self {
         Self {
             current_step: 0,
@@ -63,8 +60,7 @@ impl ProofStepperState {
             proof_lines,
             document_uri,
             midi_output,
-            lsp_stdin,
-            message_rx,
+            vscoq_lsp,
         }
     }
 
@@ -92,11 +88,7 @@ impl ProofStepperState {
     }
 
     fn send_message(&mut self, msg: &serde_json::Value) -> std::io::Result<()> {
-        let msg_str = msg.to_string();
-        let full_message = format!("Content-Length: {}\r\n\r\n{}", msg_str.len(), msg_str);
-        self.lsp_stdin.write_all(full_message.as_bytes())?;
-        self.lsp_stdin.flush()?;
-        Ok(())
+        self.vscoq_lsp.send_message(msg)
     }
 }
 
@@ -199,68 +191,64 @@ fn handle_execute_step(
     let mut found_proof_view = false;
 
     while timeout.elapsed() < Duration::from_secs(2) {
-        match state.message_rx.recv_timeout(Duration::from_millis(100)) {
-            Ok(msg) => {
-                if debug {
-                    println!("Received message: {:#?}", msg);
-                }
+        if let Some(msg) = state.vscoq_lsp.recv(Duration::from_millis(100)) {
+            if debug {
+                println!("Received message: {:#?}", msg);
+            }
 
-                let method = msg.get("method").and_then(|m| m.as_str()).unwrap_or("");
+            let method = msg.get("method").and_then(|m| m.as_str()).unwrap_or("");
 
-                if method == "vscoq/proofView" {
-                    if let Some(params) = msg.get("params") {
-                        println!("State after executing '{}':", line_text);
-                        println!("{}", format_goals(params, debug));
+            if method == "vscoq/proofView" {
+                println!("{}", msg);
+                if let Some(params) = msg.get("params") {
+                    println!("State after executing '{}':", line_text);
+                    println!("{}", format_goals(params, debug));
 
-                        state.last_goals_state = params.clone();
+                    state.last_goals_state = params.clone();
 
-                        // Parse semicolons first
-                        let tactics = parse_semicolon_tactics(&line_text);
-                        println!("[PARSE] Line '{}' split by semicolon -> {} tactic(s): {:?}",
-                                 line_text, tactics.len(), tactics);
+                    // Parse semicolons first
+                    let tactics = parse_semicolon_tactics(&line_text);
+                    println!("[PARSE] Line '{}' split by semicolon -> {} tactic(s): {:?}",
+                             line_text, tactics.len(), tactics);
 
-                        // Build final list of tactics to send
-                        let mut tactics_to_send = Vec::new();
+                    // Build final list of tactics to send
+                    let mut tactics_to_send = Vec::new();
 
-                        for tactic in tactics {
-                            // If this tactic contains "auto", replace it with extracted tactics
-                            if tactic.contains("auto") {
-                                if let Some(messages) = params.get("messages") {
-                                    if let Some(extracted_tactics) = parse_info_message(messages) {
-                                        println!("[INFO] Replacing '{}' with {} extracted tactics: {:?}",
-                                                 tactic, extracted_tactics.len(), extracted_tactics);
-                                        tactics_to_send.extend(extracted_tactics);
-                                    } else {
-                                        tactics_to_send.push(tactic);
-                                    }
+                    for tactic in tactics {
+                        // If this tactic contains "auto", replace it with extracted tactics
+                        if tactic.contains("auto") {
+                            if let Some(messages) = params.get("messages") {
+                                if let Some(extracted_tactics) = parse_info_message(messages) {
+                                    println!("[INFO] Replacing '{}' with {} extracted tactics: {:?}",
+                                             tactic, extracted_tactics.len(), extracted_tactics);
+                                    tactics_to_send.extend(extracted_tactics);
                                 } else {
                                     tactics_to_send.push(tactic);
                                 }
                             } else {
-                                // Not an auto tactic, use as-is
                                 tactics_to_send.push(tactic);
                             }
+                        } else {
+                            // Not an auto tactic, use as-is
+                            tactics_to_send.push(tactic);
                         }
-
-                        println!("[PARSE] Final tactics to send: {:?}", tactics_to_send);
-
-                        // Send each tactic to MIDI
-                        for tactic in tactics_to_send {
-                            println!("[MIDI] Sending to MIDI: '{}'", tactic);
-                            process_tactic_to_midi(&state.midi_output, &tactic, params,
-                                Some(Duration::from_millis(MIDI_TEST_NOTE_DURATION_DEFAULT)));
-                        }
-
-                        found_proof_view = true;
-                        break;
                     }
-                }
-            }
-            Err(_) => {
-                if found_proof_view {
+
+                    println!("[PARSE] Final tactics to send: {:?}", tactics_to_send);
+
+                    // Send each tactic to MIDI
+                    for tactic in tactics_to_send {
+                        println!("[MIDI] Sending to MIDI: '{}'", tactic);
+                        process_tactic_to_midi(&state.midi_output, &tactic, params,
+                            Some(Duration::from_millis(MIDI_TEST_NOTE_DURATION_DEFAULT)));
+                    }
+
+                    found_proof_view = true;
                     break;
                 }
             }
+        } else if found_proof_view {
+            break;
         }
     }
 
@@ -452,32 +440,6 @@ pub fn extract_proof_steps(coq_content: &str) -> Vec<(usize, String)> {
     proof_steps
 }
 
-fn read_lsp_message(reader: &mut BufReader<impl std::io::Read>) -> Option<serde_json::Value> {
-    let mut header = String::new();
-    if reader.read_line(&mut header).ok()? == 0 {
-        return None;
-    }
-
-    if !header.starts_with("Content-Length:") {
-        return None;
-    }
-
-    let content_length: usize = header
-        .trim_start_matches("Content-Length:")
-        .trim()
-        .parse()
-        .ok()?;
-
-    let mut empty = String::new();
-    reader.read_line(&mut empty).ok()?;
-
-    let mut content = vec![0; content_length];
-    reader.read_exact(&mut content).ok()?;
-
-    let msg_str = String::from_utf8(content).ok()?;
-    serde_json::from_str(&msg_str).ok()
-}
-
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     env_logger::init();
     let args = Args::parse();
@@ -498,110 +460,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Initialize MIDI output
     let midi_output = MidiOutput::new(args.midi_device)?;
 
-    // Start vscoqtop process
-    let mut vscoq = Command::new("vscoqtop")
-        .stdout(Stdio::piped())
-        .stdin(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .map_err(|e| {
-            if e.to_string().contains("No such file") {
-                format!("Error: vscoqtop executable not found. Did you run `opam install vscoq-language-server`?\nOriginal error: {}", e)
-            } else {
-                format!("Failed to start vscoqtop: {}", e)
-            }
-        })?;
-
-    // Set up communication channels
-    let mut lsp_stdin = vscoq.stdin.take().expect("Failed to open stdin");
-    let lsp_stdout = vscoq.stdout.take().expect("Failed to open stdout");
-    let lsp_stderr = BufReader::new(vscoq.stderr.take().expect("Failed to open stderr"));
-
-    // Channel for parsed messages
-    let (tx, rx) = mpsc::channel();
-
-    // Handle stderr
-    thread::spawn(move || {
-        for line in lsp_stderr.lines() {
-            if let Ok(line) = line {
-                eprintln!("vscoqtop stderr: {}", line);
-            }
-        }
-    });
-
-    // Handle stdout and parse LSP messages
-    let tx_clone = tx.clone();
-    thread::spawn(move || {
-        let mut reader = BufReader::new(lsp_stdout);
-        loop {
-            if let Some(msg) = read_lsp_message(&mut reader) {
-                if tx_clone.send(msg).is_err() {
-                    break;
-                }
-            } else {
-                thread::sleep(Duration::from_millis(50));
-            }
-        }
-    });
-
-    // Helper function to send messages
-    let mut send_message = |msg: &serde_json::Value| -> std::io::Result<()> {
-        let msg_str = msg.to_string();
-        let full_message = format!("Content-Length: {}\r\n\r\n{}", msg_str.len(), msg_str);
-        lsp_stdin.write_all(full_message.as_bytes())?;
-        lsp_stdin.flush()?;
-        Ok(())
-    };
-
-    // Initialize the LSP connection
-    send_message(&json!({
-        "jsonrpc": "2.0",
-        "id": 1,
-        "method": "initialize",
-        "params": {
-            "processId": std::process::id(),
-            "rootUri": format!("file://{}", std::env::current_dir()?.display()),
-            "capabilities": {
-                "workspace": {"configuration": true}
-            }
-        }
-    }))?;
-
-    // Wait for initialize response
-    println!("Waiting for vscoqtop initialization...");
-    rx.recv_timeout(Duration::from_secs(2))?;
-
-    // Send initialized notification
-    send_message(&json!({
-        "jsonrpc": "2.0",
-        "method": "initialized",
-        "params": {}
-    }))?;
-
-    // Handle workspace/configuration request
-    while let Ok(msg) = rx.recv_timeout(Duration::from_millis(1000)) {
-        if let Some(id) = msg.get("id") {
-            if msg.get("method").and_then(|m| m.as_str()) == Some("workspace/configuration") {
-                send_message(&json!({
-                    "jsonrpc": "2.0",
-                    "id": id,
-                    "result": [{
-                        "path": "/Users/clairewang/.opam/default/bin/vscoqtop",
-                        "proof": {"mode": 0},
-                        "goals": {
-                            "messages": {
-                                "full": true
-                            }
-                        }
-                    }]
-                }))?;
-                break;
-            }
-        }
-    }
-
-    thread::sleep(Duration::from_millis(500));
-    println!("vscoqtop connected successfully");
+    // Start and initialize vscoqtop LSP
+    let mut vscoq_lsp = VscoqLSP::start()?;
+    vscoq_lsp.initialize()?;
 
     // Display the proof file
     println!("\nCoq proof to step through:");
@@ -613,24 +474,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let document_uri = format!("file://{}", args.file.canonicalize()?.display());
 
     // Open the document
-    send_message(&json!({
-        "jsonrpc": "2.0",
-        "method": "textDocument/didOpen",
-        "params": {
-            "textDocument": {
-                "uri": document_uri.clone(),
-                "languageId": "coq",
-                "version": JSON_VERSION,
-                "text": coq_file
-            }
-        }
-    }))?;
+    vscoq_lsp.open_document(&document_uri, &coq_file, JSON_VERSION)?;
 
     // Wait for document to be parsed
     println!("Waiting for document to be parsed...");
     let mut highlights_count = 0;
     while highlights_count < 3 {
-        if let Ok(msg) = rx.recv_timeout(Duration::from_millis(2000)) {
+        if let Some(msg) = vscoq_lsp.recv(Duration::from_millis(2000)) {
             let method = msg.get("method").and_then(|m| m.as_str()).unwrap_or("");
             if method == "vscoq/updateHighlights" {
                 highlights_count += 1;
@@ -653,7 +503,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     }
 
-    let mut state = ProofStepperState::new(proof_lines, document_uri.clone(), midi_output, lsp_stdin, rx);
+    let mut state = ProofStepperState::new(proof_lines, document_uri.clone(), midi_output, vscoq_lsp);
 
     // Display initial state
     println!("\nInteractive Coq Proof Stepper with MIDI");
@@ -705,13 +555,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     // Cleanup
-    state.send_message(&json!({
-        "jsonrpc": "2.0",
-        "method": "textDocument/didClose",
-        "params": {
-            "textDocument": {"uri": document_uri}
-        }
-    }))?;
+    state.vscoq_lsp.close_document(&document_uri)?;
 
     println!("Proof session ended.");
     println!("Press any key to stop all notes and exit.");

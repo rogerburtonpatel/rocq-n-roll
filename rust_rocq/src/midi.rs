@@ -147,6 +147,7 @@ pub fn create_tactic_midi_map() -> HashMap<&'static str, Note> {
     map.insert("intros", (64, 90));        // E4 - opening, welcoming
     map.insert("apply", (69, 85));         // A4 - forward motion
     map.insert("rewrite", (62, 75));       // D4 - transformative
+    map.insert("simple apply", (65,80)); 
     
     // Induction/recursion - deeper notes
     map.insert("induction", (48, 110));    // C3 - deep, structural
@@ -173,12 +174,26 @@ pub fn create_tactic_midi_map() -> HashMap<&'static str, Note> {
 }
 
 // Extract tactic name from a proof line
+// Handles multi-word tactics like "simple apply"
 pub fn extract_tactic_name(line: &str) -> String {
-    let re = Regex::new(r"^\s*[-+*]*\s*([a-zA-Z][a-zA-Z0-9_]*)")
-        .expect("Failed to compile regex");
-    
-    if let Some(captures) = re.captures(line) {
-        captures.get(1).unwrap().as_str().to_lowercase()
+    let trimmed = line.trim_start_matches(|c: char| c.is_whitespace() || c == '-' || c == '+' || c == '*');
+    let trimmed = trimmed.trim_start();
+
+    // Try to match multi-word tactics first (up to 3 words)
+    let words: Vec<&str> = trimmed.split_whitespace().take(3).collect();
+
+    // Try matching from longest to shortest
+    for n in (1..=words.len()).rev() {
+        let candidate = words[..n].join(" ").to_lowercase();
+        let tactic_map = create_tactic_midi_map();
+        if tactic_map.contains_key(candidate.as_str()) {
+            return candidate;
+        }
+    }
+
+    // Fall back to first word if no match found
+    if let Some(first_word) = words.first() {
+        first_word.to_lowercase()
     } else {
         "unknown".to_string()
     }

@@ -41,7 +41,6 @@ pub struct MidiOutput {
 impl MidiOutput {
     pub fn new(device_id: Option<i32>) -> Result<Self, Box<dyn std::error::Error>> {
         let context = pm::PortMidi::new()?;
-        
         if let Some(id) = device_id {
             if id == -1 {
                 println!("Available MIDI devices:");

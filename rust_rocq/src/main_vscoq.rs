@@ -6,7 +6,7 @@
 
 use clap::Parser;
 use serde_json::json;
-use std::fs;
+use std::{fs, thread};
 use std::io::{self, BufRead, Write};
 use std::path::PathBuf;
 use std::time::Duration;
@@ -35,6 +35,7 @@ struct Args {
 
 const JSON_VERSION: u64 = 1;
 const MIDI_TEST_NOTE_DURATION_DEFAULT: u64 = 1100;
+const ARPEGGIATION_SLEEP_TIME: u32 = 200_000_000; // nanoseconds. lovely unit to work with
 
 pub struct ProofStepperState {
     current_step: usize,
@@ -236,11 +237,19 @@ fn handle_execute_step(
 
                     println!("[PARSE] Final tactics to send: {:?}", tactics_to_send);
 
+                    let arpeggiation_sleep : Duration = 
+                    if tactics_to_send.len() > 1 {
+
+                        Duration::new(0, ARPEGGIATION_SLEEP_TIME)
+                    } else {
+                        Duration::new(0, 0)
+                    };
                     // Send each tactic to MIDI
                     for tactic in tactics_to_send {
                         println!("[MIDI] Sending to MIDI: '{}'", tactic);
                         process_tactic_to_midi(&state.midi_output, &tactic, params,
                             Some(Duration::from_millis(MIDI_TEST_NOTE_DURATION_DEFAULT)));
+                            thread::sleep(arpeggiation_sleep);
                     }
 
                     found_proof_view = true;

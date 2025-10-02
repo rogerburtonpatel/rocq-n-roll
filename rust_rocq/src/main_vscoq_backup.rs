@@ -213,8 +213,43 @@ fn handle_execute_step(
                         println!("{}", format_goals(params, debug));
 
                         state.last_goals_state = params.clone();
-                        process_tactic_to_midi(&state.midi_output, &line_text, params,
-                            Some(Duration::from_millis(MIDI_TEST_NOTE_DURATION_DEFAULT)));
+
+                        // Parse semicolons first
+                        let tactics = parse_semicolon_tactics(&line_text);
+                        println!("[PARSE] Line '{}' split by semicolon -> {} tactic(s): {:?}",
+                                 line_text, tactics.len(), tactics);
+
+                        // Build final list of tactics to send
+                        let mut tactics_to_send = Vec::new();
+
+                        for tactic in tactics {
+                            // If this tactic contains "auto", replace it with extracted tactics
+                            if tactic.contains("auto") {
+                                if let Some(messages) = params.get("messages") {
+                                    if let Some(extracted_tactics) = parse_info_message(messages) {
+                                        println!("[INFO] Replacing '{}' with {} extracted tactics: {:?}",
+                                                 tactic, extracted_tactics.len(), extracted_tactics);
+                                        tactics_to_send.extend(extracted_tactics);
+                                    } else {
+                                        tactics_to_send.push(tactic);
+                                    }
+                                } else {
+                                    tactics_to_send.push(tactic);
+                                }
+                            } else {
+                                // Not an auto tactic, use as-is
+                                tactics_to_send.push(tactic);
+                            }
+                        }
+
+                        println!("[PARSE] Final tactics to send: {:?}", tactics_to_send);
+
+                        // Send each tactic to MIDI
+                        for tactic in tactics_to_send {
+                            println!("[MIDI] Sending to MIDI: '{}'", tactic);
+                            process_tactic_to_midi(&state.midi_output, &tactic, params,
+                                Some(Duration::from_millis(MIDI_TEST_NOTE_DURATION_DEFAULT)));
+                        }
 
                         found_proof_view = true;
                         break;
@@ -237,6 +272,135 @@ fn handle_execute_step(
     state.advance_step();
 
     Ok(false)
+}
+
+/// Parse a tactic statement that may contain semicolon combinators
+/// e.g., "intros; auto." -> ["intros", "auto."]
+pub fn parse_semicolon_tactics(tactic: &str) -> Vec<String> {
+    let trimmed = tactic.trim();
+
+    // Split by semicolon and collect non-empty parts
+    trimmed.split(';')
+        .map(|s| s.trim())
+        .filter(|s| !s.is_empty())
+        .map(|s| s.to_string())
+        .collect()
+}
+
+/// Extract text from a Ppcmd structure recursively
+/// Use newline as separator for Ppcmd_force_newline
+fn extract_ppcmd_text(value: &serde_json::Value) -> String {
+    match value {
+        serde_json::Value::String(s) => s.clone(),
+        serde_json::Value::Array(arr) => {
+            if arr.is_empty() {
+                return String::new();
+            }
+
+            // Check if this is a Ppcmd command
+            if let Some(cmd) = arr[0].as_str() {
+                match cmd {
+                    "Ppcmd_string" => {
+                        if arr.len() > 1 {
+                            arr[1].as_str().unwrap_or("").to_string()
+                        } else {
+                            String::new()
+                        }
+                    }
+                    "Ppcmd_force_newline" => {
+                        "\n".to_string()
+                    }
+                    "Ppcmd_glue" => {
+                        if arr.len() > 1 {
+                            if let Some(inner_arr) = arr[1].as_array() {
+                                inner_arr.iter()
+                                    .map(|v| extract_ppcmd_text(v))
+                                    .collect::<Vec<_>>()
+                                    .join("")
+                            } else {
+                                String::new()
+                            }
+                        } else {
+                            String::new()
+                        }
+                    }
+                    "Ppcmd_tag" => {
+                        // Tag has format: ["Ppcmd_tag", "tag_name", content]
+                        if arr.len() > 2 {
+                            extract_ppcmd_text(&arr[2])
+                        } else {
+                            String::new()
+                        }
+                    }
+                    _ => {
+                        // For other commands, try to extract from remaining elements
+                        arr.iter().skip(1)
+                            .map(|v| extract_ppcmd_text(v))
+                            .collect::<Vec<_>>()
+                            .join("")
+                    }
+                }
+            } else {
+                // Array without command string, process all elements
+                arr.iter()
+                    .map(|v| extract_ppcmd_text(v))
+                    .collect::<Vec<_>>()
+                    .join("")
+            }
+        }
+        _ => String::new(),
+    }
+}
+
+/// Parse info messages (like "info auto") from proof view messages
+/// Returns a list of tactic strings extracted from the info message
+pub fn parse_info_message(messages: &serde_json::Value) -> Option<Vec<String>> {
+    // Messages can be an array of message entries
+    if let Some(msg_array) = messages.as_array() {
+        for msg_entry in msg_array {
+            // Each entry is typically [level, ppcmd_content]
+            if let Some(entry_arr) = msg_entry.as_array() {
+                if entry_arr.len() >= 2 {
+                    let text = extract_ppcmd_text(&entry_arr[1]);
+
+                    // Check if this is an info message
+                    if text.contains("(* info") {
+                        // Extract the tactic part (everything after the comment marker)
+                        // The actual tactic is in the next message or continuation
+                        continue;
+                    } else if !text.trim().is_empty() && !text.starts_with("(*") {
+                        // This is the tactic content
+                        // Split by newlines and periods to get individual tactics
+                        let mut tactics = Vec::new();
+
+                        for line in text.lines() {
+                            let trimmed = line.trim();
+                            if trimmed.is_empty() {
+                                continue;
+                            }
+
+                            // Remove trailing period
+                            let without_period = trimmed.trim_end_matches('.');
+
+                            // Split by semicolon and take only the main tactic (before ';')
+                            if let Some(main_tactic) = without_period.split(';').next() {
+                                let tactic = main_tactic.trim();
+                                if !tactic.is_empty() {
+                                    tactics.push(tactic.to_string());
+                                }
+                            }
+                        }
+
+                        if !tactics.is_empty() {
+                            return Some(tactics);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    None
 }
 
 pub fn extract_proof_steps(coq_content: &str) -> Vec<(usize, String)> {

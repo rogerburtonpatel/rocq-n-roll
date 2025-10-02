@@ -21,4 +21,4 @@ regex = "1.0"
 
 [[bin]]
 name = "rust_rocq_vscoq"
-path = "src/main_vscoq_backup.rs"
+path = "src/main_vscoq.rs"

@@ -200,16 +200,28 @@ pub fn extract_tactic_name(line: &str) -> String {
     }
 }
 
+#[derive(Clone, Debug)]
+pub struct ProofStateDiff {
+    pub prev_goals: usize,
+    pub prev_shelved: usize,
+    pub prev_unfocused: usize,
+    pub curr_goals: usize,
+    pub curr_shelved: usize,
+    pub curr_unfocused: usize,
+    pub step_number: usize,
+    pub total_steps: usize,
+}
+
 // Real MIDI processing function
 pub fn process_tactic_to_midi(
-    midi_output: &MidiOutput, 
-    line_text: &str, 
+    midi_output: &MidiOutput,
+    line_text: &str,
     goals_json: &serde_json::Value,
     hold_duration: Option<Duration>
 ) {
     let tactic_map = create_tactic_midi_map();
     let tactic_name = extract_tactic_name(line_text);
-    
+
     println!("\n[MIDI] Processing tactic: '{}' -> '{}'", line_text, tactic_name);
     
     // Get base note for the tactic
@@ -229,7 +241,7 @@ pub fn process_tactic_to_midi(
                 // Count total hypotheses for velocity adjustment
                 let mut total_hyps = 0;
                 for goal in goals_array {
-                    if let Some(hyps) = goal.get("hyps") {
+                    if let Some(hyps) = goal.get("hypotheses") {
                         if let Some(hyps_array) = hyps.as_array() {
                             total_hyps += hyps_array.len();
                         }
@@ -247,7 +259,76 @@ pub fn process_tactic_to_midi(
     
     // Play the note
     midi_output.play_note(pitch, velocity, hold_duration);
-    
+
+    // Add harmonic context based on proof state
+
+    // play_harmonic_context(midi_output, goals_json, pitch);
+}
+
+// MIDI processing with proof state diff tracking (to undo, use process_tactic_to_midi instead)
+pub fn process_tactic_to_midi_with_proof_state(
+    midi_output: &MidiOutput,
+    line_text: &str,
+    goals_json: &serde_json::Value,
+    hold_duration: Option<Duration>,
+    proof_diff: Option<ProofStateDiff>
+) {
+    let tactic_map = create_tactic_midi_map();
+    let tactic_name = extract_tactic_name(line_text);
+
+    println!("\n[MIDI] Processing tactic: '{}' -> '{}'", line_text, tactic_name);
+
+    // Print proof state diff
+    if let Some(diff) = &proof_diff {
+        let goals_diff = diff.curr_goals as i32 - diff.prev_goals as i32;
+        let shelved_diff = diff.curr_shelved as i32 - diff.prev_shelved as i32;
+        let unfocused_diff = diff.curr_unfocused as i32 - diff.prev_unfocused as i32;
+
+        println!("[PROOF STATE DIFF] Step {}/{}", diff.step_number, diff.total_steps);
+        println!("  Previous: goals={}, shelved={}, unfocused={}",
+                 diff.prev_goals, diff.prev_shelved, diff.prev_unfocused);
+        println!("  Current:  goals={}, shelved={}, unfocused={}",
+                 diff.curr_goals, diff.curr_shelved, diff.curr_unfocused);
+        println!("  Delta:    goals={:+}, shelved={:+}, unfocused={:+}",
+                 goals_diff, shelved_diff, unfocused_diff);
+    }
+
+    // Get base note for the tactic
+    let (mut pitch, mut velocity) = tactic_map.get(tactic_name.as_str())
+        .copied()
+        .unwrap_or(DEFAULT_NOTE); // Default: G3, medium velocity
+
+    // Modify based on proof state complexity
+    if let Some(goals_config) = goals_json.get("goals") {
+        if let Some(goals) = goals_config.get("goals") {
+            if let Some(goals_array) = goals.as_array() {
+                let num_goals = goals_array.len();
+
+                // More goals = higher pitch (urgency)
+                pitch = (pitch as i16 + (num_goals as i16 * 2)).min(MAX_PITCH as i16) as u8;
+
+                // Count total hypotheses for velocity adjustment
+                let mut total_hyps = 0;
+                for goal in goals_array {
+                    if let Some(hyps) = goal.get("hypotheses") {
+                        if let Some(hyps_array) = hyps.as_array() {
+                            total_hyps += hyps_array.len();
+                        }
+                    }
+                }
+
+                // More hypotheses = higher velocity (complexity)
+                velocity = (velocity as i16 + (total_hyps as i16 * 3)).min(MAX_PITCH as i16) as u8;
+
+                println!("[MIDI] Goals: {}, Hypotheses: {}, Final note: {} @ {}",
+                         num_goals, total_hyps, pitch, velocity);
+            }
+        }
+    }
+
+    // Play the note
+    midi_output.play_note(pitch, velocity, hold_duration);
+
     // Add harmonic context based on proof state
 
     // play_harmonic_context(midi_output, goals_json, pitch);

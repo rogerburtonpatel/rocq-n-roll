@@ -15,7 +15,7 @@ mod midi;
 mod formatting;
 mod lsp;
 
-use midi::{MidiOutput, process_tactic_to_midi, play_proof_sequence};
+use midi::{MidiOutput, process_tactic_to_midi, process_tactic_to_midi_with_proof_state, play_proof_sequence, ProofStateDiff};
 use formatting::format_goals;
 use lsp::VscoqLSP;
 
@@ -35,11 +35,51 @@ struct Args {
 
 const JSON_VERSION: u64 = 1;
 const MIDI_TEST_NOTE_DURATION_DEFAULT: u64 = 1100;
+
+#[derive(Clone, Debug)]
+pub struct ProofStateSnapshot {
+    pub goals_count: usize,
+    pub shelved_count: usize,
+    pub unfocused_count: usize,
+}
+
+impl ProofStateSnapshot {
+    fn from_proof_view(proof_view: &serde_json::Value) -> Self {
+        if let Some(proof) = proof_view.get("proof") {
+            let goals_count = proof.get("goals")
+                .and_then(|g| g.as_array())
+                .map(|a| a.len())
+                .unwrap_or(0);
+            let shelved_count = proof.get("shelvedGoals")
+                .and_then(|g| g.as_array())
+                .map(|a| a.len())
+                .unwrap_or(0);
+            let unfocused_count = proof.get("unfocusedGoals")
+                .and_then(|g| g.as_array())
+                .map(|a| a.len())
+                .unwrap_or(0);
+
+            ProofStateSnapshot {
+                goals_count,
+                shelved_count,
+                unfocused_count,
+            }
+        } else {
+            ProofStateSnapshot {
+                goals_count: 0,
+                shelved_count: 0,
+                unfocused_count: 0,
+            }
+        }
+    }
+}
 const ARPEGGIATION_SLEEP_TIME: u32 = 200_000_000; // nanoseconds. lovely unit to work with
 
 pub struct ProofStepperState {
     current_step: usize,
     total_steps: usize,
+    previous_proof_state: Option<ProofStateSnapshot>,
+    current_proof_state: Option<ProofStateSnapshot>,
     last_goals_state: serde_json::Value,
     proof_lines: Vec<(usize, String)>,
     document_uri: String,
@@ -57,6 +97,8 @@ impl ProofStepperState {
         Self {
             current_step: 0,
             total_steps: proof_lines.len(),
+            previous_proof_state: None,
+            current_proof_state: None,
             last_goals_state: serde_json::Value::Null,
             proof_lines,
             document_uri,
@@ -81,6 +123,8 @@ impl ProofStepperState {
 
     fn reset(&mut self) {
         self.current_step = 0;
+        self.previous_proof_state = None;
+        self.current_proof_state = None;
         self.last_goals_state = serde_json::Value::Null;
     }
 
@@ -130,7 +174,28 @@ fn handle_replay(state: &mut ProofStepperState) -> bool {
 
     if state.last_goals_state != serde_json::Value::Null {
         if let Some((_, current_line_text)) = state.get_current_tactic() {
-            process_tactic_to_midi(&state.midi_output, current_line_text, &last_goals_state, Some(Duration::from_millis(MIDI_TEST_NOTE_DURATION_DEFAULT)));
+            // Stop previous notes so OP-1 retriggers (comment this line to undo)
+            state.midi_output.stop_all_notes(None);
+
+            // Create proof state diff if we have previous state
+            let proof_diff = if let (Some(prev), Some(curr)) = (&state.previous_proof_state, &state.current_proof_state) {
+                Some(ProofStateDiff {
+                    prev_goals: prev.goals_count,
+                    prev_shelved: prev.shelved_count,
+                    prev_unfocused: prev.unfocused_count,
+                    curr_goals: curr.goals_count,
+                    curr_shelved: curr.shelved_count,
+                    curr_unfocused: curr.unfocused_count,
+                    step_number: state.current_step + 1,
+                    total_steps: state.total_steps,
+                })
+            } else {
+                None
+            };
+
+            process_tactic_to_midi_with_proof_state(&state.midi_output, current_line_text, &last_goals_state,
+                Some(Duration::from_millis(MIDI_TEST_NOTE_DURATION_DEFAULT)),
+                proof_diff);
         }
     } else {
         println!("No current step to replay.");
@@ -205,7 +270,30 @@ fn handle_execute_step(
                     println!("State after executing '{}':", line_text);
                     println!("{}", format_goals(params, debug));
 
+                    // Parse and display goal counts
+                    if let Some(proof) = params.get("proof") {
+                        let goals_count = proof.get("goals")
+                            .and_then(|g| g.as_array())
+                            .map(|a| a.len())
+                            .unwrap_or(0);
+                        let shelved_count = proof.get("shelvedGoals")
+                            .and_then(|g| g.as_array())
+                            .map(|a| a.len())
+                            .unwrap_or(0);
+                        let unfocused_count = proof.get("unfocusedGoals")
+                            .and_then(|g| g.as_array())
+                            .map(|a| a.len())
+                            .unwrap_or(0);
+
+                        println!("[GOALS] Active: {}, Shelved: {}, Unfocused: {}",
+                                 goals_count, shelved_count, unfocused_count);
+                    }
+
                     state.last_goals_state = params.clone();
+
+                    // Update proof state snapshots for diff tracking
+                    state.previous_proof_state = state.current_proof_state.clone();
+                    state.current_proof_state = Some(ProofStateSnapshot::from_proof_view(params));
 
                     // Parse semicolons first
                     let tactics = parse_semicolon_tactics(&line_text);
@@ -237,6 +325,26 @@ fn handle_execute_step(
 
                     println!("[PARSE] Final tactics to send: {:?}", tactics_to_send);
 
+                    // Stop previous notes so OP-1 retriggers (comment this line to undo)
+                    state.midi_output.stop_all_notes(None);
+
+                    // Create proof state diff if we have previous state
+                    let proof_diff = if let (Some(prev), Some(curr)) = (&state.previous_proof_state, &state.current_proof_state) {
+                        Some(ProofStateDiff {
+                            prev_goals: prev.goals_count,
+                            prev_shelved: prev.shelved_count,
+                            prev_unfocused: prev.unfocused_count,
+                            curr_goals: curr.goals_count,
+                            curr_shelved: curr.shelved_count,
+                            curr_unfocused: curr.unfocused_count,
+                            step_number: state.current_step + 1,
+                            total_steps: state.total_steps,
+                        })
+                    } else {
+                        None
+                    };
+
+                    // Send each tactic to MIDI with proof state diff
                     let arpeggiation_sleep : Duration = 
                     if tactics_to_send.len() > 1 {
 
@@ -247,6 +355,9 @@ fn handle_execute_step(
                     // Send each tactic to MIDI
                     for tactic in tactics_to_send {
                         println!("[MIDI] Sending to MIDI: '{}'", tactic);
+                        process_tactic_to_midi_with_proof_state(&state.midi_output, &tactic, params,
+                            Some(Duration::from_millis(MIDI_TEST_NOTE_DURATION_DEFAULT)),
+                            proof_diff.clone());
                         process_tactic_to_midi(&state.midi_output, &tactic, params,
                             Some(Duration::from_millis(MIDI_TEST_NOTE_DURATION_DEFAULT)));
                             thread::sleep(arpeggiation_sleep);
@@ -425,23 +536,29 @@ pub fn extract_proof_steps(coq_content: &str) -> Vec<(usize, String)> {
 
     let lines: Vec<&str> = cleaned.lines().collect();
     let mut proof_steps = Vec::new();
+    let mut in_proof = false;
 
     for (line_num, line) in lines.iter().enumerate() {
         let trimmed = line.trim();
 
+        // Start of a proof
         if trimmed == "Proof." {
+            in_proof = true;
             continue;
         }
 
+        // End of a proof - continue to next proof instead of breaking
         if trimmed == "Qed."
             || trimmed == "Defined."
             || trimmed.starts_with("Qed")
             || trimmed.starts_with("Defined")
         {
-            break;
+            in_proof = false;
+            continue;
         }
 
-        if !trimmed.is_empty() {
+        // Only collect steps that are inside proofs
+        if in_proof && !trimmed.is_empty() {
             proof_steps.push((line_num, trimmed.to_string()));
         }
     }

@@ -1,7 +1,6 @@
 // TODOS: 
-// clean up rest of constants & magic nums 
-// lsp to gui 
-// midi off fade out- stop_all_notes
+// relate proofs more heavilty to lsp output 
+// gui trees build incrementally 
 
 use clap::Parser;
 use serde_json::json;
@@ -557,20 +556,20 @@ pub fn extract_proof_steps(coq_content: &str) -> Vec<(usize, String)> {
             continue;
         }
 
-        // End of a proof - continue to next proof instead of breaking
+        // not skipping currently, keeping around in case needed. 
         if trimmed == "Qed."
             || trimmed == "Defined."
             || trimmed.starts_with("Qed")
             || trimmed.starts_with("Defined")
         {
-            in_proof = false;
-            continue;
+            
         }
 
         // Only collect steps that are inside proofs
         if in_proof && !trimmed.is_empty() {
             proof_steps.push((line_num, trimmed.to_string()));
         }
+
     }
 
     proof_steps

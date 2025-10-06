@@ -903,14 +903,13 @@ pub fn extract_proof_steps(coq_content: &str) -> Vec<(usize, String)> {
             continue;
         }
 
-        // End of a proof - continue to next proof instead of breaking
+        // not skipping currently, keeping around in case needed. 
         if trimmed == "Qed."
             || trimmed == "Defined."
             || trimmed.starts_with("Qed")
             || trimmed.starts_with("Defined")
         {
-            in_proof = false;
-            continue;
+            
         }
 
         // Only collect steps that are inside proofs

@@ -575,3 +575,40 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     Ok(())
 }
+
+pub fn generate_sample_proof() -> Vec<(usize, String)> {
+    let mut line_no : usize = 0; 
+    vec![
+         "Theorem plus_comm : forall n m : nat, n + m = m + n.",
+         "Proof.",
+         "  intros n m.",
+         "  induction n as [| n' IHn'].",
+         "  - simpl.",
+         "    rewrite <- plus_n_O.",
+         "    reflexivity.",
+         "  - simpl.",
+         "    rewrite IHn'.",
+         "    rewrite plus_n_Sm.",
+         "    reflexivity.",
+         "Qed.",
+         "",
+         "Theorem mult_comm : forall n m : nat, n * m = m * n.",
+         "Proof.",
+         "  intros n m.",
+         "  induction n as [| n' IHn'].",
+         "  - simpl.",
+         "    rewrite <- mult_n_O.",
+         "    reflexivity.",
+         "  - simpl.",
+         "    rewrite IHn'.",
+         "    rewrite mult_n_Sm.",
+         "    rewrite plus_comm.",
+         "    reflexivity.",
+         "Qed.",
+    ].iter().map(
+        |s| { 
+        let old_line_no = line_no; 
+        line_no += 1; // mutating map! yay for safety! 
+        (old_line_no, s.to_string()) 
+    }).collect()
+}

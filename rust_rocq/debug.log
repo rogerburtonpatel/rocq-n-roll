@@ -1,0 +1,3401 @@
+   Compiling rust_rocq v0.1.0 (/Users/rogerburtonpatel/home/projects/rocq-n-roll/rust_rocq)
+warning: methods `get_receiver` and `interpret_to_point` are never used
+   --> src/lsp.rs:160:12
+    |
+41  | impl VscoqLSP {
+    | ------------- methods in this implementation
+...
+160 |     pub fn get_receiver(&self) -> &Receiver<serde_json::Value> {
+    |            ^^^^^^^^^^^^
+...
+197 |     pub fn interpret_to_point(
+    |            ^^^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` on by default
+
+warning: constant `AUTOPLAY_NOTE_LENGTH` is never used
+  --> src/midi.rs:26:7
+   |
+26 | const AUTOPLAY_NOTE_LENGTH  : NoteDuration = 0;
+   |       ^^^^^^^^^^^^^^^^^^^^
+
+warning: constant `NUM_DISSONANT_NOTES_IN_CLUSTER` is never used
+  --> src/midi.rs:30:7
+   |
+30 | const NUM_DISSONANT_NOTES_IN_CLUSTER: i16 = 4;
+   |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: constant `DISSONANCE_HOLD_TIME` is never used
+  --> src/midi.rs:31:7
+   |
+31 | const DISSONANCE_HOLD_TIME: u64 = 500;
+   |       ^^^^^^^^^^^^^^^^^^^^
+
+warning: function `adjust_note_using_context` is never used
+   --> src/midi.rs:211:4
+    |
+211 | fn adjust_note_using_context (mut pitch : u8, mut velocity : u8, goals_json : &serde_json::Value) -> (u8, u8) {    
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `process_tactic_to_midi` is never used
+   --> src/midi.rs:242:8
+    |
+242 | pub fn process_tactic_to_midi(
+    |        ^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `play_harmonic_context` is never used
+   --> src/midi.rs:338:4
+    |
+338 | fn play_harmonic_context(midi_output: &MidiOutput, goals_json: &serde_json::Value, base_pitch: u8) {
+    |    ^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `text_of_message` is never used
+   --> src/midi.rs:380:4
+    |
+380 | fn text_of_message(message: &Value) -> String {
+    |    ^^^^^^^^^^^^^^^
+
+warning: function `play_chord` is never used
+   --> src/midi.rs:392:4
+    |
+392 | fn play_chord(midi_output: &MidiOutput, root: u8, intervals: &[u8], velocity: u8) {
+    |    ^^^^^^^^^^
+
+warning: function `play_dissonant_cluster` is never used
+   --> src/midi.rs:400:4
+    |
+400 | fn play_dissonant_cluster(midi_output: &MidiOutput, base_pitch: u8) {
+    |    ^^^^^^^^^^^^^^^^^^^^^^
+
+warning: `rust_rocq` (bin "rust_rocq") generated 10 warnings
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.60s
+     Running `target/debug/rust_rocq test.v --midi-device 1 --debug`
+[2025-10-07T03:01:21Z INFO  rust_rocq] This shows always
+[2025-10-07T03:01:21Z DEBUG rust_rocq] Only shows in debug mode
+Waiting for vscoqtop initialization...
+vscoqtop connected successfully
+
+Coq proof to step through:
+ 0: Require Import Stdlib.Arith.Arith.
+ 1: Theorem simple_add : forall n : nat, n + 0 = n.
+ 2: Set Info Auto. 
+ 3: Theorem simple_add : forall n : nat, n + 0 = n /\ 0 + n = n.
+ 4: 
+ 5: Proof.   
+ 6:   split. 
+ 7:   - auto. 
+ 8:   - auto. 
+ 9: Qed.
+Waiting for document to be parsed...
+
+Interactive Coq Proof Stepper with MIDI
+-------------------------------------
+Press Enter to step through the proof
+Type 'q' to quit, 'h' for help
+-------------------------------------
+
+
+------------------------------------------------------------
+
+Current tactic: split.
+Press Enter to execute this step, or type a command: [2025-10-07T03:01:23Z DEBUG rust_rocq] 
+    Executing step 1/4...
+[2025-10-07T03:01:23Z DEBUG rust_rocq] Sending interpretToPoint: {"jsonrpc":"2.0","method":"vscoq/interpretToPoint","params":{"position":{"character":999,"line":6},"textDocument":{"uri":"file:///Users/rogerburtonpatel/home/projects/rocq-n-roll/rust_rocq/test.v","version":1}}}
+[2025-10-07T03:01:23Z DEBUG rust_rocq] Received message: Object {
+        "jsonrpc": String("2.0"),
+        "method": String("textDocument/publishDiagnostics"),
+        "params": Object {
+            "diagnostics": Array [],
+            "uri": String("file:///Users/rogerburtonpatel/home/projects/rocq-n-roll/rust_rocq/test.v"),
+        },
+    }
+[2025-10-07T03:01:23Z DEBUG rust_rocq] Received message: Object {
+        "jsonrpc": String("2.0"),
+        "method": String("vscoq/updateHighlights"),
+        "params": Object {
+            "preparedRange": Array [],
+            "processedRange": Array [],
+            "processingRange": Array [],
+            "uri": String("file:///Users/rogerburtonpatel/home/projects/rocq-n-roll/rust_rocq/test.v"),
+        },
+    }
+[2025-10-07T03:01:23Z DEBUG rust_rocq] Received message: Object {
+        "jsonrpc": String("2.0"),
+        "method": String("textDocument/publishDiagnostics"),
+        "params": Object {
+            "diagnostics": Array [],
+            "uri": String("file:///Users/rogerburtonpatel/home/projects/rocq-n-roll/rust_rocq/test.v"),
+        },
+    }
+[2025-10-07T03:01:23Z DEBUG rust_rocq] Received message: Object {
+        "jsonrpc": String("2.0"),
+        "method": String("vscoq/updateHighlights"),
+        "params": Object {
+            "preparedRange": Array [],
+            "processedRange": Array [],
+            "processingRange": Array [],
+            "uri": String("file:///Users/rogerburtonpatel/home/projects/rocq-n-roll/rust_rocq/test.v"),
+        },
+    }
+[2025-10-07T03:01:23Z DEBUG rust_rocq] Received message: Object {
+        "jsonrpc": String("2.0"),
+        "method": String("textDocument/publishDiagnostics"),
+        "params": Object {
+            "diagnostics": Array [],
+            "uri": String("file:///Users/rogerburtonpatel/home/projects/rocq-n-roll/rust_rocq/test.v"),
+        },
+    }
+No proof view received for this step
+
+------------------------------------------------------------
+
+Current tactic: - auto.
+Press Enter to execute this step, or type a command: [2025-10-07T03:01:25Z DEBUG rust_rocq] 
+    Executing step 2/4...
+[2025-10-07T03:01:25Z DEBUG rust_rocq] Sending interpretToPoint: {"jsonrpc":"2.0","method":"vscoq/interpretToPoint","params":{"position":{"character":999,"line":7},"textDocument":{"uri":"file:///Users/rogerburtonpatel/home/projects/rocq-n-roll/rust_rocq/test.v","version":1}}}
+[2025-10-07T03:01:25Z DEBUG rust_rocq] Received message: Object {
+        "jsonrpc": String("2.0"),
+        "method": String("vscoq/updateHighlights"),
+        "params": Object {
+            "preparedRange": Array [],
+            "processedRange": Array [],
+            "processingRange": Array [],
+            "uri": String("file:///Users/rogerburtonpatel/home/projects/rocq-n-roll/rust_rocq/test.v"),
+        },
+    }
+[2025-10-07T03:01:25Z DEBUG rust_rocq] Received message: Object {
+        "jsonrpc": String("2.0"),
+        "method": String("textDocument/publishDiagnostics"),
+        "params": Object {
+            "diagnostics": Array [],
+            "uri": String("file:///Users/rogerburtonpatel/home/projects/rocq-n-roll/rust_rocq/test.v"),
+        },
+    }
+[2025-10-07T03:01:25Z DEBUG rust_rocq] Received message: Object {
+        "jsonrpc": String("2.0"),
+        "method": String("vscoq/updateHighlights"),
+        "params": Object {
+            "preparedRange": Array [
+                Object {
+                    "end": Object {
+                        "character": Number(9),
+                        "line": Number(7),
+                    },
+                    "start": Object {
+                        "character": Number(34),
+                        "line": Number(0),
+                    },
+                },
+            ],
+            "processedRange": Array [],
+            "processingRange": Array [],
+            "uri": String("file:///Users/rogerburtonpatel/home/projects/rocq-n-roll/rust_rocq/test.v"),
+        },
+    }
+[2025-10-07T03:01:25Z DEBUG rust_rocq] Received message: Object {
+        "jsonrpc": String("2.0"),
+        "method": String("textDocument/publishDiagnostics"),
+        "params": Object {
+            "diagnostics": Array [],
+            "uri": String("file:///Users/rogerburtonpatel/home/projects/rocq-n-roll/rust_rocq/test.v"),
+        },
+    }
+[2025-10-07T03:01:25Z DEBUG rust_rocq] Received message: Object {
+        "jsonrpc": String("2.0"),
+        "method": String("vscoq/updateHighlights"),
+        "params": Object {
+            "preparedRange": Array [
+                Object {
+                    "end": Object {
+                        "character": Number(9),
+                        "line": Number(7),
+                    },
+                    "start": Object {
+                        "character": Number(47),
+                        "line": Number(1),
+                    },
+                },
+            ],
+            "processedRange": Array [
+                Object {
+                    "end": Object {
+                        "character": Number(34),
+                        "line": Number(0),
+                    },
+                    "start": Object {
+                        "character": Number(0),
+                        "line": Number(0),
+                    },
+                },
+            ],
+            "processingRange": Array [
+                Object {
+                    "end": Object {
+                        "character": Number(47),
+                        "line": Number(1),
+                    },
+                    "start": Object {
+                        "character": Number(34),
+                        "line": Number(0),
+                    },
+                },
+            ],
+            "uri": String("file:///Users/rogerburtonpatel/home/projects/rocq-n-roll/rust_rocq/test.v"),
+        },
+    }
+[2025-10-07T03:01:25Z DEBUG rust_rocq] Received message: Object {
+        "jsonrpc": String("2.0"),
+        "method": String("textDocument/publishDiagnostics"),
+        "params": Object {
+            "diagnostics": Array [],
+            "uri": String("file:///Users/rogerburtonpatel/home/projects/rocq-n-roll/rust_rocq/test.v"),
+        },
+    }
+[2025-10-07T03:01:25Z DEBUG rust_rocq] Received message: Object {
+        "jsonrpc": String("2.0"),
+        "method": String("vscoq/updateHighlights"),
+        "params": Object {
+            "preparedRange": Array [
+                Object {
+                    "end": Object {
+                        "character": Number(9),
+                        "line": Number(7),
+                    },
+                    "start": Object {
+                        "character": Number(14),
+                        "line": Number(2),
+                    },
+                },
+            ],
+            "processedRange": Array [
+                Object {
+                    "end": Object {
+                        "character": Number(47),
+                        "line": Number(1),
+                    },
+                    "start": Object {
+                        "character": Number(0),
+                        "line": Number(0),
+                    },
+                },
+            ],
+            "processingRange": Array [
+                Object {
+                    "end": Object {
+                        "character": Number(14),
+                        "line": Number(2),
+                    },
+                    "start": Object {
+                        "character": Number(47),
+                        "line": Number(1),
+                    },
+                },
+            ],
+            "uri": String("file:///Users/rogerburtonpatel/home/projects/rocq-n-roll/rust_rocq/test.v"),
+        },
+    }
+[2025-10-07T03:01:25Z DEBUG rust_rocq] Received message: Object {
+        "jsonrpc": String("2.0"),
+        "method": String("textDocument/publishDiagnostics"),
+        "params": Object {
+            "diagnostics": Array [],
+            "uri": String("file:///Users/rogerburtonpatel/home/projects/rocq-n-roll/rust_rocq/test.v"),
+        },
+    }
+[2025-10-07T03:01:25Z DEBUG rust_rocq] Received message: Object {
+        "jsonrpc": String("2.0"),
+        "method": String("vscoq/updateHighlights"),
+        "params": Object {
+            "preparedRange": Array [
+                Object {
+                    "end": Object {
+                        "character": Number(9),
+                        "line": Number(7),
+                    },
+                    "start": Object {
+                        "character": Number(60),
+                        "line": Number(3),
+                    },
+                },
+            ],
+            "processedRange": Array [
+                Object {
+                    "end": Object {
+                        "character": Number(14),
+                        "line": Number(2),
+                    },
+                    "start": Object {
+                        "character": Number(0),
+                        "line": Number(0),
+                    },
+                },
+            ],
+            "processingRange": Array [
+                Object {
+                    "end": Object {
+                        "character": Number(60),
+                        "line": Number(3),
+                    },
+                    "start": Object {
+                        "character": Number(14),
+                        "line": Number(2),
+                    },
+                },
+            ],
+            "uri": String("file:///Users/rogerburtonpatel/home/projects/rocq-n-roll/rust_rocq/test.v"),
+        },
+    }
+[2025-10-07T03:01:25Z DEBUG rust_rocq] Received message: Object {
+        "jsonrpc": String("2.0"),
+        "method": String("textDocument/publishDiagnostics"),
+        "params": Object {
+            "diagnostics": Array [],
+            "uri": String("file:///Users/rogerburtonpatel/home/projects/rocq-n-roll/rust_rocq/test.v"),
+        },
+    }
+[2025-10-07T03:01:25Z DEBUG rust_rocq] Received message: Object {
+        "jsonrpc": String("2.0"),
+        "method": String("vscoq/updateHighlights"),
+        "params": Object {
+            "preparedRange": Array [
+                Object {
+                    "end": Object {
+                        "character": Number(9),
+                        "line": Number(7),
+                    },
+                    "start": Object {
+                        "character": Number(6),
+                        "line": Number(5),
+                    },
+                },
+            ],
+            "processedRange": Array [
+                Object {
+                    "end": Object {
+                        "character": Number(60),
+                        "line": Number(3),
+                    },
+                    "start": Object {
+                        "character": Number(0),
+                        "line": Number(0),
+                    },
+                },
+            ],
+            "processingRange": Array [
+                Object {
+                    "end": Object {
+                        "character": Number(6),
+                        "line": Number(5),
+                    },
+                    "start": Object {
+                        "character": Number(60),
+                        "line": Number(3),
+                    },
+                },
+            ],
+            "uri": String("file:///Users/rogerburtonpatel/home/projects/rocq-n-roll/rust_rocq/test.v"),
+        },
+    }
+[2025-10-07T03:01:25Z DEBUG rust_rocq] Received message: Object {
+        "jsonrpc": String("2.0"),
+        "method": String("textDocument/publishDiagnostics"),
+        "params": Object {
+            "diagnostics": Array [],
+            "uri": String("file:///Users/rogerburtonpatel/home/projects/rocq-n-roll/rust_rocq/test.v"),
+        },
+    }
+[2025-10-07T03:01:25Z DEBUG rust_rocq] Received message: Object {
+        "jsonrpc": String("2.0"),
+        "method": String("vscoq/updateHighlights"),
+        "params": Object {
+            "preparedRange": Array [
+                Object {
+                    "end": Object {
+                        "character": Number(9),
+                        "line": Number(7),
+                    },
+                    "start": Object {
+                        "character": Number(8),
+                        "line": Number(6),
+                    },
+                },
+            ],
+            "processedRange": Array [
+                Object {
+                    "end": Object {
+                        "character": Number(6),
+                        "line": Number(5),
+                    },
+                    "start": Object {
+                        "character": Number(0),
+                        "line": Number(0),
+                    },
+                },
+            ],
+            "processingRange": Array [
+                Object {
+                    "end": Object {
+                        "character": Number(8),
+                        "line": Number(6),
+                    },
+                    "start": Object {
+                        "character": Number(6),
+                        "line": Number(5),
+                    },
+                },
+            ],
+            "uri": String("file:///Users/rogerburtonpatel/home/projects/rocq-n-roll/rust_rocq/test.v"),
+        },
+    }
+[2025-10-07T03:01:25Z DEBUG rust_rocq] Received message: Object {
+        "jsonrpc": String("2.0"),
+        "method": String("textDocument/publishDiagnostics"),
+        "params": Object {
+            "diagnostics": Array [],
+            "uri": String("file:///Users/rogerburtonpatel/home/projects/rocq-n-roll/rust_rocq/test.v"),
+        },
+    }
+[2025-10-07T03:01:25Z DEBUG rust_rocq] Received message: Object {
+        "jsonrpc": String("2.0"),
+        "method": String("vscoq/updateHighlights"),
+        "params": Object {
+            "preparedRange": Array [
+                Object {
+                    "end": Object {
+                        "character": Number(9),
+                        "line": Number(7),
+                    },
+                    "start": Object {
+                        "character": Number(3),
+                        "line": Number(7),
+                    },
+                },
+            ],
+            "processedRange": Array [
+                Object {
+                    "end": Object {
+                        "character": Number(8),
+                        "line": Number(6),
+                    },
+                    "start": Object {
+                        "character": Number(0),
+                        "line": Number(0),
+                    },
+                },
+            ],
+            "processingRange": Array [
+                Object {
+                    "end": Object {
+                        "character": Number(3),
+                        "line": Number(7),
+                    },
+                    "start": Object {
+                        "character": Number(8),
+                        "line": Number(6),
+                    },
+                },
+            ],
+            "uri": String("file:///Users/rogerburtonpatel/home/projects/rocq-n-roll/rust_rocq/test.v"),
+        },
+    }
+[2025-10-07T03:01:25Z DEBUG rust_rocq] Received message: Object {
+        "jsonrpc": String("2.0"),
+        "method": String("textDocument/publishDiagnostics"),
+        "params": Object {
+            "diagnostics": Array [],
+            "uri": String("file:///Users/rogerburtonpatel/home/projects/rocq-n-roll/rust_rocq/test.v"),
+        },
+    }
+[2025-10-07T03:01:25Z DEBUG rust_rocq] Received message: Object {
+        "jsonrpc": String("2.0"),
+        "method": String("vscoq/updateHighlights"),
+        "params": Object {
+            "preparedRange": Array [],
+            "processedRange": Array [
+                Object {
+                    "end": Object {
+                        "character": Number(3),
+                        "line": Number(7),
+                    },
+                    "start": Object {
+                        "character": Number(0),
+                        "line": Number(0),
+                    },
+                },
+            ],
+            "processingRange": Array [
+                Object {
+                    "end": Object {
+                        "character": Number(9),
+                        "line": Number(7),
+                    },
+                    "start": Object {
+                        "character": Number(3),
+                        "line": Number(7),
+                    },
+                },
+            ],
+            "uri": String("file:///Users/rogerburtonpatel/home/projects/rocq-n-roll/rust_rocq/test.v"),
+        },
+    }
+[2025-10-07T03:01:25Z DEBUG rust_rocq] Received message: Object {
+        "jsonrpc": String("2.0"),
+        "method": String("textDocument/publishDiagnostics"),
+        "params": Object {
+            "diagnostics": Array [],
+            "uri": String("file:///Users/rogerburtonpatel/home/projects/rocq-n-roll/rust_rocq/test.v"),
+        },
+    }
+[2025-10-07T03:01:25Z DEBUG rust_rocq] Received message: Object {
+        "jsonrpc": String("2.0"),
+        "method": String("vscoq/updateHighlights"),
+        "params": Object {
+            "preparedRange": Array [],
+            "processedRange": Array [
+                Object {
+                    "end": Object {
+                        "character": Number(9),
+                        "line": Number(7),
+                    },
+                    "start": Object {
+                        "character": Number(0),
+                        "line": Number(0),
+                    },
+                },
+            ],
+            "processingRange": Array [],
+            "uri": String("file:///Users/rogerburtonpatel/home/projects/rocq-n-roll/rust_rocq/test.v"),
+        },
+    }
+[2025-10-07T03:01:25Z DEBUG rust_rocq] Received message: Object {
+        "jsonrpc": String("2.0"),
+        "method": String("textDocument/publishDiagnostics"),
+        "params": Object {
+            "diagnostics": Array [],
+            "uri": String("file:///Users/rogerburtonpatel/home/projects/rocq-n-roll/rust_rocq/test.v"),
+        },
+    }
+[2025-10-07T03:01:25Z DEBUG rust_rocq] Received message: Object {
+        "jsonrpc": String("2.0"),
+        "method": String("vscoq/updateHighlights"),
+        "params": Object {
+            "preparedRange": Array [],
+            "processedRange": Array [
+                Object {
+                    "end": Object {
+                        "character": Number(9),
+                        "line": Number(7),
+                    },
+                    "start": Object {
+                        "character": Number(0),
+                        "line": Number(0),
+                    },
+                },
+            ],
+            "processingRange": Array [],
+            "uri": String("file:///Users/rogerburtonpatel/home/projects/rocq-n-roll/rust_rocq/test.v"),
+        },
+    }
+[2025-10-07T03:01:25Z DEBUG rust_rocq] Received message: Object {
+        "jsonrpc": String("2.0"),
+        "method": String("textDocument/publishDiagnostics"),
+        "params": Object {
+            "diagnostics": Array [
+                Object {
+                    "message": String("(* info auto: *)"),
+                    "range": Object {
+                        "end": Object {
+                            "character": Number(9),
+                            "line": Number(7),
+                        },
+                        "start": Object {
+                            "character": Number(4),
+                            "line": Number(7),
+                        },
+                    },
+                    "severity": Number(3),
+                },
+                Object {
+                    "message": String("simple apply eq_sym ; trivial (in core)."),
+                    "range": Object {
+                        "end": Object {
+                            "character": Number(9),
+                            "line": Number(7),
+                        },
+                        "start": Object {
+                            "character": Number(4),
+                            "line": Number(7),
+                        },
+                    },
+                    "severity": Number(3),
+                },
+            ],
+            "uri": String("file:///Users/rogerburtonpatel/home/projects/rocq-n-roll/rust_rocq/test.v"),
+        },
+    }
+[2025-10-07T03:01:25Z DEBUG rust_rocq] Received message: Object {
+        "jsonrpc": String("2.0"),
+        "method": String("vscoq/updateHighlights"),
+        "params": Object {
+            "preparedRange": Array [],
+            "processedRange": Array [
+                Object {
+                    "end": Object {
+                        "character": Number(9),
+                        "line": Number(7),
+                    },
+                    "start": Object {
+                        "character": Number(0),
+                        "line": Number(0),
+                    },
+                },
+            ],
+            "processingRange": Array [],
+            "uri": String("file:///Users/rogerburtonpatel/home/projects/rocq-n-roll/rust_rocq/test.v"),
+        },
+    }
+[2025-10-07T03:01:25Z DEBUG rust_rocq] Received message: Object {
+        "jsonrpc": String("2.0"),
+        "method": String("textDocument/publishDiagnostics"),
+        "params": Object {
+            "diagnostics": Array [
+                Object {
+                    "message": String("(* info auto: *)"),
+                    "range": Object {
+                        "end": Object {
+                            "character": Number(9),
+                            "line": Number(7),
+                        },
+                        "start": Object {
+                            "character": Number(4),
+                            "line": Number(7),
+                        },
+                    },
+                    "severity": Number(3),
+                },
+                Object {
+                    "message": String("simple apply eq_sym ; trivial (in core)."),
+                    "range": Object {
+                        "end": Object {
+                            "character": Number(9),
+                            "line": Number(7),
+                        },
+                        "start": Object {
+                            "character": Number(4),
+                            "line": Number(7),
+                        },
+                    },
+                    "severity": Number(3),
+                },
+            ],
+            "uri": String("file:///Users/rogerburtonpatel/home/projects/rocq-n-roll/rust_rocq/test.v"),
+        },
+    }
+[2025-10-07T03:01:25Z DEBUG rust_rocq] Received message: Object {
+        "jsonrpc": String("2.0"),
+        "method": String("vscoq/proofView"),
+        "params": Object {
+            "messages": Array [
+                Array [
+                    Number(3),
+                    Array [
+                        String("Ppcmd_string"),
+                        String("(* info auto: *)"),
+                    ],
+                ],
+                Array [
+                    Number(3),
+                    Array [
+                        String("Ppcmd_glue"),
+                        Array [
+                            Array [
+                                String("Ppcmd_string"),
+                                String(""),
+                            ],
+                            Array [
+                                String("Ppcmd_string"),
+                                String("simple apply "),
+                            ],
+                            Array [
+                                String("Ppcmd_tag"),
+                                String("constr.variable"),
+                                Array [
+                                    String("Ppcmd_string"),
+                                    String("eq_sym"),
+                                ],
+                            ],
+                            Array [
+                                String("Ppcmd_string"),
+                                String(" ; trivial"),
+                            ],
+                            Array [
+                                String("Ppcmd_string"),
+                                String(" (in "),
+                            ],
+                            Array [
+                                String("Ppcmd_string"),
+                                String("core"),
+                            ],
+                            Array [
+                                String("Ppcmd_string"),
+                                String(")"),
+                            ],
+                            Array [
+                                String("Ppcmd_string"),
+                                String("."),
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+            "proof": Object {
+                "givenUpGoals": Array [],
+                "goals": Array [],
+                "shelvedGoals": Array [],
+                "unfocusedGoals": Array [
+                    Object {
+                        "goal": Array [
+                            String("Ppcmd_box"),
+                            Array [
+                                String("Pp_hovbox"),
+                                Number(0),
+                            ],
+                            Array [
+                                String("Ppcmd_glue"),
+                                Array [
+                                    Array [
+                                        String("Ppcmd_box"),
+                                        Array [
+                                            String("Pp_hovbox"),
+                                            Number(0),
+                                        ],
+                                        Array [
+                                            String("Ppcmd_glue"),
+                                            Array [
+                                                Array [
+                                                    String("Ppcmd_string"),
+                                                    String("0"),
+                                                ],
+                                                Array [
+                                                    String("Ppcmd_tag"),
+                                                    String("constr.notation"),
+                                                    Array [
+                                                        String("Ppcmd_string"),
+                                                        String(" +"),
+                                                    ],
+                                                ],
+                                                Array [
+                                                    String("Ppcmd_print_break"),
+                                                    Number(1),
+                                                    Number(0),
+                                                ],
+                                                Array [
+                                                    String("Ppcmd_tag"),
+                                                    String("constr.variable"),
+                                                    Array [
+                                                        String("Ppcmd_string"),
+                                                        String("n"),
+                                                    ],
+                                                ],
+                                            ],
+                                        ],
+                                    ],
+                                    Array [
+                                        String("Ppcmd_tag"),
+                                        String("constr.notation"),
+                                        Array [
+                                            String("Ppcmd_string"),
+                                            String(" ="),
+                                        ],
+                                    ],
+                                    Array [
+                                        String("Ppcmd_print_break"),
+                                        Number(1),
+                                        Number(0),
+                                    ],
+                                    Array [
+                                        String("Ppcmd_tag"),
+                                        String("constr.variable"),
+                                        Array [
+                                            String("Ppcmd_string"),
+                                            String("n"),
+                                        ],
+                                    ],
+                                ],
+                            ],
+                        ],
+                        "hypotheses": Array [
+                            Array [
+                                String("Ppcmd_box"),
+                                Array [
+                                    String("Pp_hovbox"),
+                                    Number(2),
+                                ],
+                                Array [
+                                    String("Ppcmd_glue"),
+                                    Array [
+                                        Array [
+                                            String("Ppcmd_box"),
+                                            Array [
+                                                String("Pp_hovbox"),
+                                                Number(0),
+                                            ],
+                                            Array [
+                                                String("Ppcmd_string"),
+                                                String("n"),
+                                            ],
+                                        ],
+                                        Array [
+                                            String("Ppcmd_string"),
+                                            String(" :"),
+                                        ],
+                                        Array [
+                                            String("Ppcmd_print_break"),
+                                            Number(1),
+                                            Number(0),
+                                        ],
+                                        Array [
+                                            String("Ppcmd_tag"),
+                                            String("constr.variable"),
+                                            Array [
+                                                String("Ppcmd_string"),
+                                                String("nat"),
+                                            ],
+                                        ],
+                                    ],
+                                ],
+                            ],
+                        ],
+                        "id": Number(9),
+                    },
+                ],
+            },
+        },
+    }
+[2025-10-07T03:01:25Z DEBUG rust_rocq] {"jsonrpc":"2.0","method":"vscoq/proofView","params":{"messages":[[3,["Ppcmd_string","(* info auto: *)"]],[3,["Ppcmd_glue",[["Ppcmd_string",""],["Ppcmd_string","simple apply "],["Ppcmd_tag","constr.variable",["Ppcmd_string","eq_sym"]],["Ppcmd_string"," ; trivial"],["Ppcmd_string"," (in "],["Ppcmd_string","core"],["Ppcmd_string",")"],["Ppcmd_string","."]]]]],"proof":{"givenUpGoals":[],"goals":[],"shelvedGoals":[],"unfocusedGoals":[{"goal":["Ppcmd_box",["Pp_hovbox",0],["Ppcmd_glue",[["Ppcmd_box",["Pp_hovbox",0],["Ppcmd_glue",[["Ppcmd_string","0"],["Ppcmd_tag","constr.notation",["Ppcmd_string"," +"]],["Ppcmd_print_break",1,0],["Ppcmd_tag","constr.variable",["Ppcmd_string","n"]]]]],["Ppcmd_tag","constr.notation",["Ppcmd_string"," ="]],["Ppcmd_print_break",1,0],["Ppcmd_tag","constr.variable",["Ppcmd_string","n"]]]]],"hypotheses":[["Ppcmd_box",["Pp_hovbox",2],["Ppcmd_glue",[["Ppcmd_box",["Pp_hovbox",0],["Ppcmd_string","n"]],["Ppcmd_string"," :"],["Ppcmd_print_break",1,0],["Ppcmd_tag","constr.variable",["Ppcmd_string","nat"]]]]]],"id":9}]}}}
+State after executing '- auto.':
+Raw Response:
+{
+  "messages": [
+    [
+      3,
+      [
+        "Ppcmd_string",
+        "(* info auto: *)"
+      ]
+    ],
+    [
+      3,
+      [
+        "Ppcmd_glue",
+        [
+          [
+            "Ppcmd_string",
+            ""
+          ],
+          [
+            "Ppcmd_string",
+            "simple apply "
+          ],
+          [
+            "Ppcmd_tag",
+            "constr.variable",
+            [
+              "Ppcmd_string",
+              "eq_sym"
+            ]
+          ],
+          [
+            "Ppcmd_string",
+            " ; trivial"
+          ],
+          [
+            "Ppcmd_string",
+            " (in "
+          ],
+          [
+            "Ppcmd_string",
+            "core"
+          ],
+          [
+            "Ppcmd_string",
+            ")"
+          ],
+          [
+            "Ppcmd_string",
+            "."
+          ]
+        ]
+      ]
+    ]
+  ],
+  "proof": {
+    "givenUpGoals": [],
+    "goals": [],
+    "shelvedGoals": [],
+    "unfocusedGoals": [
+      {
+        "goal": [
+          "Ppcmd_box",
+          [
+            "Pp_hovbox",
+            0
+          ],
+          [
+            "Ppcmd_glue",
+            [
+              [
+                "Ppcmd_box",
+                [
+                  "Pp_hovbox",
+                  0
+                ],
+                [
+                  "Ppcmd_glue",
+                  [
+                    [
+                      "Ppcmd_string",
+                      "0"
+                    ],
+                    [
+                      "Ppcmd_tag",
+                      "constr.notation",
+                      [
+                        "Ppcmd_string",
+                        " +"
+                      ]
+                    ],
+                    [
+                      "Ppcmd_print_break",
+                      1,
+                      0
+                    ],
+                    [
+                      "Ppcmd_tag",
+                      "constr.variable",
+                      [
+                        "Ppcmd_string",
+                        "n"
+                      ]
+                    ]
+                  ]
+                ]
+              ],
+              [
+                "Ppcmd_tag",
+                "constr.notation",
+                [
+                  "Ppcmd_string",
+                  " ="
+                ]
+              ],
+              [
+                "Ppcmd_print_break",
+                1,
+                0
+              ],
+              [
+                "Ppcmd_tag",
+                "constr.variable",
+                [
+                  "Ppcmd_string",
+                  "n"
+                ]
+              ]
+            ]
+          ]
+        ],
+        "hypotheses": [
+          [
+            "Ppcmd_box",
+            [
+              "Pp_hovbox",
+              2
+            ],
+            [
+              "Ppcmd_glue",
+              [
+                [
+                  "Ppcmd_box",
+                  [
+                    "Pp_hovbox",
+                    0
+                  ],
+                  [
+                    "Ppcmd_string",
+                    "n"
+                  ]
+                ],
+                [
+                  "Ppcmd_string",
+                  " :"
+                ],
+                [
+                  "Ppcmd_print_break",
+                  1,
+                  0
+                ],
+                [
+                  "Ppcmd_tag",
+                  "constr.variable",
+                  [
+                    "Ppcmd_string",
+                    "nat"
+                  ]
+                ]
+              ]
+            ]
+          ]
+        ],
+        "id": 9
+      }
+    ]
+  }
+}
+  [3,["Ppcmd_string","(* info auto: *)"]]
+  [3,["Ppcmd_glue",[["Ppcmd_string",""],["Ppcmd_string","simple apply "],["Ppcmd_tag","constr.variable",["Ppcmd_string","eq_sym"]],["Ppcmd_string"," ; trivial"],["Ppcmd_string"," (in "],["Ppcmd_string","core"],["Ppcmd_string",")"],["Ppcmd_string","."]]]]
+
+
+[GOALS] Active: 0, Shelved: 0, Unfocused: 1
+[PARSE] Line '- auto.' split by semicolon -> 1 tactic(s): ["- auto."]
+[INFO] Replacing '- auto.' with 1 extracted tactics: ["simple apply eq_sym"]
+[PARSE] Final tactics to send: ["simple apply eq_sym"]
+[MIDI] Sending to MIDI: 'simple apply eq_sym'
+
+[MIDI] Processing tactic: 'simple apply eq_sym' -> 'simple apply'
+
+------------------------------------------------------------
+
+Current tactic: - auto.
+Press Enter to execute this step, or type a command: [2025-10-07T03:01:26Z DEBUG rust_rocq] 
+    Executing step 3/4...
+[2025-10-07T03:01:26Z DEBUG rust_rocq] Sending interpretToPoint: {"jsonrpc":"2.0","method":"vscoq/interpretToPoint","params":{"position":{"character":999,"line":8},"textDocument":{"uri":"file:///Users/rogerburtonpatel/home/projects/rocq-n-roll/rust_rocq/test.v","version":1}}}
+[2025-10-07T03:01:26Z DEBUG rust_rocq] Received message: Object {
+        "jsonrpc": String("2.0"),
+        "method": String("vscoq/updateHighlights"),
+        "params": Object {
+            "preparedRange": Array [],
+            "processedRange": Array [
+                Object {
+                    "end": Object {
+                        "character": Number(9),
+                        "line": Number(7),
+                    },
+                    "start": Object {
+                        "character": Number(0),
+                        "line": Number(0),
+                    },
+                },
+            ],
+            "processingRange": Array [],
+            "uri": String("file:///Users/rogerburtonpatel/home/projects/rocq-n-roll/rust_rocq/test.v"),
+        },
+    }
+[2025-10-07T03:01:26Z DEBUG rust_rocq] Received message: Object {
+        "jsonrpc": String("2.0"),
+        "method": String("textDocument/publishDiagnostics"),
+        "params": Object {
+            "diagnostics": Array [
+                Object {
+                    "message": String("(* info auto: *)"),
+                    "range": Object {
+                        "end": Object {
+                            "character": Number(9),
+                            "line": Number(7),
+                        },
+                        "start": Object {
+                            "character": Number(4),
+                            "line": Number(7),
+                        },
+                    },
+                    "severity": Number(3),
+                },
+                Object {
+                    "message": String("simple apply eq_sym ; trivial (in core)."),
+                    "range": Object {
+                        "end": Object {
+                            "character": Number(9),
+                            "line": Number(7),
+                        },
+                        "start": Object {
+                            "character": Number(4),
+                            "line": Number(7),
+                        },
+                    },
+                    "severity": Number(3),
+                },
+            ],
+            "uri": String("file:///Users/rogerburtonpatel/home/projects/rocq-n-roll/rust_rocq/test.v"),
+        },
+    }
+[2025-10-07T03:01:26Z DEBUG rust_rocq] Received message: Object {
+        "jsonrpc": String("2.0"),
+        "method": String("vscoq/updateHighlights"),
+        "params": Object {
+            "preparedRange": Array [
+                Object {
+                    "end": Object {
+                        "character": Number(9),
+                        "line": Number(8),
+                    },
+                    "start": Object {
+                        "character": Number(3),
+                        "line": Number(8),
+                    },
+                },
+            ],
+            "processedRange": Array [
+                Object {
+                    "end": Object {
+                        "character": Number(9),
+                        "line": Number(7),
+                    },
+                    "start": Object {
+                        "character": Number(0),
+                        "line": Number(0),
+                    },
+                },
+            ],
+            "processingRange": Array [],
+            "uri": String("file:///Users/rogerburtonpatel/home/projects/rocq-n-roll/rust_rocq/test.v"),
+        },
+    }
+[2025-10-07T03:01:26Z DEBUG rust_rocq] Received message: Object {
+        "jsonrpc": String("2.0"),
+        "method": String("textDocument/publishDiagnostics"),
+        "params": Object {
+            "diagnostics": Array [
+                Object {
+                    "message": String("(* info auto: *)"),
+                    "range": Object {
+                        "end": Object {
+                            "character": Number(9),
+                            "line": Number(7),
+                        },
+                        "start": Object {
+                            "character": Number(4),
+                            "line": Number(7),
+                        },
+                    },
+                    "severity": Number(3),
+                },
+                Object {
+                    "message": String("simple apply eq_sym ; trivial (in core)."),
+                    "range": Object {
+                        "end": Object {
+                            "character": Number(9),
+                            "line": Number(7),
+                        },
+                        "start": Object {
+                            "character": Number(4),
+                            "line": Number(7),
+                        },
+                    },
+                    "severity": Number(3),
+                },
+            ],
+            "uri": String("file:///Users/rogerburtonpatel/home/projects/rocq-n-roll/rust_rocq/test.v"),
+        },
+    }
+[2025-10-07T03:01:26Z DEBUG rust_rocq] Received message: Object {
+        "jsonrpc": String("2.0"),
+        "method": String("vscoq/updateHighlights"),
+        "params": Object {
+            "preparedRange": Array [],
+            "processedRange": Array [
+                Object {
+                    "end": Object {
+                        "character": Number(3),
+                        "line": Number(8),
+                    },
+                    "start": Object {
+                        "character": Number(0),
+                        "line": Number(0),
+                    },
+                },
+            ],
+            "processingRange": Array [
+                Object {
+                    "end": Object {
+                        "character": Number(9),
+                        "line": Number(8),
+                    },
+                    "start": Object {
+                        "character": Number(3),
+                        "line": Number(8),
+                    },
+                },
+            ],
+            "uri": String("file:///Users/rogerburtonpatel/home/projects/rocq-n-roll/rust_rocq/test.v"),
+        },
+    }
+[2025-10-07T03:01:26Z DEBUG rust_rocq] Received message: Object {
+        "jsonrpc": String("2.0"),
+        "method": String("textDocument/publishDiagnostics"),
+        "params": Object {
+            "diagnostics": Array [
+                Object {
+                    "message": String("(* info auto: *)"),
+                    "range": Object {
+                        "end": Object {
+                            "character": Number(9),
+                            "line": Number(7),
+                        },
+                        "start": Object {
+                            "character": Number(4),
+                            "line": Number(7),
+                        },
+                    },
+                    "severity": Number(3),
+                },
+                Object {
+                    "message": String("simple apply eq_sym ; trivial (in core)."),
+                    "range": Object {
+                        "end": Object {
+                            "character": Number(9),
+                            "line": Number(7),
+                        },
+                        "start": Object {
+                            "character": Number(4),
+                            "line": Number(7),
+                        },
+                    },
+                    "severity": Number(3),
+                },
+            ],
+            "uri": String("file:///Users/rogerburtonpatel/home/projects/rocq-n-roll/rust_rocq/test.v"),
+        },
+    }
+[2025-10-07T03:01:26Z DEBUG rust_rocq] Received message: Object {
+        "jsonrpc": String("2.0"),
+        "method": String("vscoq/updateHighlights"),
+        "params": Object {
+            "preparedRange": Array [],
+            "processedRange": Array [
+                Object {
+                    "end": Object {
+                        "character": Number(9),
+                        "line": Number(8),
+                    },
+                    "start": Object {
+                        "character": Number(0),
+                        "line": Number(0),
+                    },
+                },
+            ],
+            "processingRange": Array [],
+            "uri": String("file:///Users/rogerburtonpatel/home/projects/rocq-n-roll/rust_rocq/test.v"),
+        },
+    }
+[2025-10-07T03:01:26Z DEBUG rust_rocq] Received message: Object {
+        "jsonrpc": String("2.0"),
+        "method": String("textDocument/publishDiagnostics"),
+        "params": Object {
+            "diagnostics": Array [
+                Object {
+                    "message": String("(* info auto: *)"),
+                    "range": Object {
+                        "end": Object {
+                            "character": Number(9),
+                            "line": Number(7),
+                        },
+                        "start": Object {
+                            "character": Number(4),
+                            "line": Number(7),
+                        },
+                    },
+                    "severity": Number(3),
+                },
+                Object {
+                    "message": String("simple apply eq_sym ; trivial (in core)."),
+                    "range": Object {
+                        "end": Object {
+                            "character": Number(9),
+                            "line": Number(7),
+                        },
+                        "start": Object {
+                            "character": Number(4),
+                            "line": Number(7),
+                        },
+                    },
+                    "severity": Number(3),
+                },
+            ],
+            "uri": String("file:///Users/rogerburtonpatel/home/projects/rocq-n-roll/rust_rocq/test.v"),
+        },
+    }
+[2025-10-07T03:01:26Z DEBUG rust_rocq] Received message: Object {
+        "jsonrpc": String("2.0"),
+        "method": String("vscoq/updateHighlights"),
+        "params": Object {
+            "preparedRange": Array [],
+            "processedRange": Array [
+                Object {
+                    "end": Object {
+                        "character": Number(9),
+                        "line": Number(8),
+                    },
+                    "start": Object {
+                        "character": Number(0),
+                        "line": Number(0),
+                    },
+                },
+            ],
+            "processingRange": Array [],
+            "uri": String("file:///Users/rogerburtonpatel/home/projects/rocq-n-roll/rust_rocq/test.v"),
+        },
+    }
+[2025-10-07T03:01:26Z DEBUG rust_rocq] Received message: Object {
+        "jsonrpc": String("2.0"),
+        "method": String("textDocument/publishDiagnostics"),
+        "params": Object {
+            "diagnostics": Array [
+                Object {
+                    "message": String("(* info auto: *)"),
+                    "range": Object {
+                        "end": Object {
+                            "character": Number(9),
+                            "line": Number(8),
+                        },
+                        "start": Object {
+                            "character": Number(4),
+                            "line": Number(8),
+                        },
+                    },
+                    "severity": Number(3),
+                },
+                Object {
+                    "message": String("simple apply @eq_refl (in core)."),
+                    "range": Object {
+                        "end": Object {
+                            "character": Number(9),
+                            "line": Number(8),
+                        },
+                        "start": Object {
+                            "character": Number(4),
+                            "line": Number(8),
+                        },
+                    },
+                    "severity": Number(3),
+                },
+                Object {
+                    "message": String("(* info auto: *)"),
+                    "range": Object {
+                        "end": Object {
+                            "character": Number(9),
+                            "line": Number(7),
+                        },
+                        "start": Object {
+                            "character": Number(4),
+                            "line": Number(7),
+                        },
+                    },
+                    "severity": Number(3),
+                },
+                Object {
+                    "message": String("simple apply eq_sym ; trivial (in core)."),
+                    "range": Object {
+                        "end": Object {
+                            "character": Number(9),
+                            "line": Number(7),
+                        },
+                        "start": Object {
+                            "character": Number(4),
+                            "line": Number(7),
+                        },
+                    },
+                    "severity": Number(3),
+                },
+            ],
+            "uri": String("file:///Users/rogerburtonpatel/home/projects/rocq-n-roll/rust_rocq/test.v"),
+        },
+    }
+[2025-10-07T03:01:26Z DEBUG rust_rocq] Received message: Object {
+        "jsonrpc": String("2.0"),
+        "method": String("vscoq/updateHighlights"),
+        "params": Object {
+            "preparedRange": Array [],
+            "processedRange": Array [
+                Object {
+                    "end": Object {
+                        "character": Number(9),
+                        "line": Number(8),
+                    },
+                    "start": Object {
+                        "character": Number(0),
+                        "line": Number(0),
+                    },
+                },
+            ],
+            "processingRange": Array [],
+            "uri": String("file:///Users/rogerburtonpatel/home/projects/rocq-n-roll/rust_rocq/test.v"),
+        },
+    }
+[2025-10-07T03:01:26Z DEBUG rust_rocq] Received message: Object {
+        "jsonrpc": String("2.0"),
+        "method": String("textDocument/publishDiagnostics"),
+        "params": Object {
+            "diagnostics": Array [
+                Object {
+                    "message": String("(* info auto: *)"),
+                    "range": Object {
+                        "end": Object {
+                            "character": Number(9),
+                            "line": Number(8),
+                        },
+                        "start": Object {
+                            "character": Number(4),
+                            "line": Number(8),
+                        },
+                    },
+                    "severity": Number(3),
+                },
+                Object {
+                    "message": String("simple apply @eq_refl (in core)."),
+                    "range": Object {
+                        "end": Object {
+                            "character": Number(9),
+                            "line": Number(8),
+                        },
+                        "start": Object {
+                            "character": Number(4),
+                            "line": Number(8),
+                        },
+                    },
+                    "severity": Number(3),
+                },
+                Object {
+                    "message": String("(* info auto: *)"),
+                    "range": Object {
+                        "end": Object {
+                            "character": Number(9),
+                            "line": Number(7),
+                        },
+                        "start": Object {
+                            "character": Number(4),
+                            "line": Number(7),
+                        },
+                    },
+                    "severity": Number(3),
+                },
+                Object {
+                    "message": String("simple apply eq_sym ; trivial (in core)."),
+                    "range": Object {
+                        "end": Object {
+                            "character": Number(9),
+                            "line": Number(7),
+                        },
+                        "start": Object {
+                            "character": Number(4),
+                            "line": Number(7),
+                        },
+                    },
+                    "severity": Number(3),
+                },
+            ],
+            "uri": String("file:///Users/rogerburtonpatel/home/projects/rocq-n-roll/rust_rocq/test.v"),
+        },
+    }
+[2025-10-07T03:01:26Z DEBUG rust_rocq] Received message: Object {
+        "jsonrpc": String("2.0"),
+        "method": String("vscoq/proofView"),
+        "params": Object {
+            "messages": Array [
+                Array [
+                    Number(3),
+                    Array [
+                        String("Ppcmd_string"),
+                        String("(* info auto: *)"),
+                    ],
+                ],
+                Array [
+                    Number(3),
+                    Array [
+                        String("Ppcmd_glue"),
+                        Array [
+                            Array [
+                                String("Ppcmd_string"),
+                                String(""),
+                            ],
+                            Array [
+                                String("Ppcmd_string"),
+                                String("simple apply "),
+                            ],
+                            Array [
+                                String("Ppcmd_string"),
+                                String("@"),
+                            ],
+                            Array [
+                                String("Ppcmd_tag"),
+                                String("constr.variable"),
+                                Array [
+                                    String("Ppcmd_string"),
+                                    String("eq_refl"),
+                                ],
+                            ],
+                            Array [
+                                String("Ppcmd_string"),
+                                String(" (in "),
+                            ],
+                            Array [
+                                String("Ppcmd_string"),
+                                String("core"),
+                            ],
+                            Array [
+                                String("Ppcmd_string"),
+                                String(")"),
+                            ],
+                            Array [
+                                String("Ppcmd_string"),
+                                String("."),
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+            "proof": Object {
+                "givenUpGoals": Array [],
+                "goals": Array [],
+                "shelvedGoals": Array [],
+                "unfocusedGoals": Array [],
+            },
+        },
+    }
+[2025-10-07T03:01:26Z DEBUG rust_rocq] {"jsonrpc":"2.0","method":"vscoq/proofView","params":{"messages":[[3,["Ppcmd_string","(* info auto: *)"]],[3,["Ppcmd_glue",[["Ppcmd_string",""],["Ppcmd_string","simple apply "],["Ppcmd_string","@"],["Ppcmd_tag","constr.variable",["Ppcmd_string","eq_refl"]],["Ppcmd_string"," (in "],["Ppcmd_string","core"],["Ppcmd_string",")"],["Ppcmd_string","."]]]]],"proof":{"givenUpGoals":[],"goals":[],"shelvedGoals":[],"unfocusedGoals":[]}}}
+State after executing '- auto.':
+Raw Response:
+{
+  "messages": [
+    [
+      3,
+      [
+        "Ppcmd_string",
+        "(* info auto: *)"
+      ]
+    ],
+    [
+      3,
+      [
+        "Ppcmd_glue",
+        [
+          [
+            "Ppcmd_string",
+            ""
+          ],
+          [
+            "Ppcmd_string",
+            "simple apply "
+          ],
+          [
+            "Ppcmd_string",
+            "@"
+          ],
+          [
+            "Ppcmd_tag",
+            "constr.variable",
+            [
+              "Ppcmd_string",
+              "eq_refl"
+            ]
+          ],
+          [
+            "Ppcmd_string",
+            " (in "
+          ],
+          [
+            "Ppcmd_string",
+            "core"
+          ],
+          [
+            "Ppcmd_string",
+            ")"
+          ],
+          [
+            "Ppcmd_string",
+            "."
+          ]
+        ]
+      ]
+    ]
+  ],
+  "proof": {
+    "givenUpGoals": [],
+    "goals": [],
+    "shelvedGoals": [],
+    "unfocusedGoals": []
+  }
+}
+  [3,["Ppcmd_string","(* info auto: *)"]]
+  [3,["Ppcmd_glue",[["Ppcmd_string",""],["Ppcmd_string","simple apply "],["Ppcmd_string","@"],["Ppcmd_tag","constr.variable",["Ppcmd_string","eq_refl"]],["Ppcmd_string"," (in "],["Ppcmd_string","core"],["Ppcmd_string",")"],["Ppcmd_string","."]]]]
+
+
+[GOALS] Active: 0, Shelved: 0, Unfocused: 0
+[PARSE] Line '- auto.' split by semicolon -> 1 tactic(s): ["- auto."]
+[INFO] Replacing '- auto.' with 1 extracted tactics: ["simple apply @eq_refl (in core)"]
+[PARSE] Final tactics to send: ["simple apply @eq_refl (in core)"]
+[MIDI] Sending to MIDI: 'simple apply @eq_refl (in core)'
+
+[MIDI] Processing tactic: 'simple apply @eq_refl (in core)' -> 'simple apply'
+[PROOF STATE DIFF] Step 3/4
+  Previous: goals=0, shelved=0, unfocused=1
+  Current:  goals=0, shelved=0, unfocused=0
+  Delta:    goals=+0, shelved=+0, unfocused=-1
+
+------------------------------------------------------------
+
+Current tactic: Qed.
+Press Enter to execute this step, or type a command: [2025-10-07T03:01:28Z DEBUG rust_rocq] 
+    Executing step 4/4...
+[2025-10-07T03:01:28Z DEBUG rust_rocq] Sending interpretToPoint: {"jsonrpc":"2.0","method":"vscoq/interpretToPoint","params":{"position":{"character":999,"line":9},"textDocument":{"uri":"file:///Users/rogerburtonpatel/home/projects/rocq-n-roll/rust_rocq/test.v","version":1}}}
+[2025-10-07T03:01:28Z DEBUG rust_rocq] Received message: Object {
+        "jsonrpc": String("2.0"),
+        "method": String("vscoq/updateHighlights"),
+        "params": Object {
+            "preparedRange": Array [],
+            "processedRange": Array [
+                Object {
+                    "end": Object {
+                        "character": Number(9),
+                        "line": Number(8),
+                    },
+                    "start": Object {
+                        "character": Number(0),
+                        "line": Number(0),
+                    },
+                },
+            ],
+            "processingRange": Array [],
+            "uri": String("file:///Users/rogerburtonpatel/home/projects/rocq-n-roll/rust_rocq/test.v"),
+        },
+    }
+[2025-10-07T03:01:28Z DEBUG rust_rocq] Received message: Object {
+        "jsonrpc": String("2.0"),
+        "method": String("textDocument/publishDiagnostics"),
+        "params": Object {
+            "diagnostics": Array [
+                Object {
+                    "message": String("(* info auto: *)"),
+                    "range": Object {
+                        "end": Object {
+                            "character": Number(9),
+                            "line": Number(8),
+                        },
+                        "start": Object {
+                            "character": Number(4),
+                            "line": Number(8),
+                        },
+                    },
+                    "severity": Number(3),
+                },
+                Object {
+                    "message": String("simple apply @eq_refl (in core)."),
+                    "range": Object {
+                        "end": Object {
+                            "character": Number(9),
+                            "line": Number(8),
+                        },
+                        "start": Object {
+                            "character": Number(4),
+                            "line": Number(8),
+                        },
+                    },
+                    "severity": Number(3),
+                },
+                Object {
+                    "message": String("(* info auto: *)"),
+                    "range": Object {
+                        "end": Object {
+                            "character": Number(9),
+                            "line": Number(7),
+                        },
+                        "start": Object {
+                            "character": Number(4),
+                            "line": Number(7),
+                        },
+                    },
+                    "severity": Number(3),
+                },
+                Object {
+                    "message": String("simple apply eq_sym ; trivial (in core)."),
+                    "range": Object {
+                        "end": Object {
+                            "character": Number(9),
+                            "line": Number(7),
+                        },
+                        "start": Object {
+                            "character": Number(4),
+                            "line": Number(7),
+                        },
+                    },
+                    "severity": Number(3),
+                },
+            ],
+            "uri": String("file:///Users/rogerburtonpatel/home/projects/rocq-n-roll/rust_rocq/test.v"),
+        },
+    }
+[2025-10-07T03:01:28Z DEBUG rust_rocq] Received message: Object {
+        "jsonrpc": String("2.0"),
+        "method": String("vscoq/updateHighlights"),
+        "params": Object {
+            "preparedRange": Array [
+                Object {
+                    "end": Object {
+                        "character": Number(4),
+                        "line": Number(9),
+                    },
+                    "start": Object {
+                        "character": Number(6),
+                        "line": Number(5),
+                    },
+                },
+            ],
+            "processedRange": Array [
+                Object {
+                    "end": Object {
+                        "character": Number(9),
+                        "line": Number(8),
+                    },
+                    "start": Object {
+                        "character": Number(0),
+                        "line": Number(0),
+                    },
+                },
+            ],
+            "processingRange": Array [],
+            "uri": String("file:///Users/rogerburtonpatel/home/projects/rocq-n-roll/rust_rocq/test.v"),
+        },
+    }
+[2025-10-07T03:01:28Z DEBUG rust_rocq] Received message: Object {
+        "jsonrpc": String("2.0"),
+        "method": String("textDocument/publishDiagnostics"),
+        "params": Object {
+            "diagnostics": Array [
+                Object {
+                    "message": String("(* info auto: *)"),
+                    "range": Object {
+                        "end": Object {
+                            "character": Number(9),
+                            "line": Number(8),
+                        },
+                        "start": Object {
+                            "character": Number(4),
+                            "line": Number(8),
+                        },
+                    },
+                    "severity": Number(3),
+                },
+                Object {
+                    "message": String("simple apply @eq_refl (in core)."),
+                    "range": Object {
+                        "end": Object {
+                            "character": Number(9),
+                            "line": Number(8),
+                        },
+                        "start": Object {
+                            "character": Number(4),
+                            "line": Number(8),
+                        },
+                    },
+                    "severity": Number(3),
+                },
+                Object {
+                    "message": String("(* info auto: *)"),
+                    "range": Object {
+                        "end": Object {
+                            "character": Number(9),
+                            "line": Number(7),
+                        },
+                        "start": Object {
+                            "character": Number(4),
+                            "line": Number(7),
+                        },
+                    },
+                    "severity": Number(3),
+                },
+                Object {
+                    "message": String("simple apply eq_sym ; trivial (in core)."),
+                    "range": Object {
+                        "end": Object {
+                            "character": Number(9),
+                            "line": Number(7),
+                        },
+                        "start": Object {
+                            "character": Number(4),
+                            "line": Number(7),
+                        },
+                    },
+                    "severity": Number(3),
+                },
+            ],
+            "uri": String("file:///Users/rogerburtonpatel/home/projects/rocq-n-roll/rust_rocq/test.v"),
+        },
+    }
+[2025-10-07T03:01:28Z DEBUG rust_rocq] Received message: Object {
+        "jsonrpc": String("2.0"),
+        "method": String("vscoq/updateHighlights"),
+        "params": Object {
+            "preparedRange": Array [
+                Object {
+                    "end": Object {
+                        "character": Number(4),
+                        "line": Number(9),
+                    },
+                    "start": Object {
+                        "character": Number(8),
+                        "line": Number(6),
+                    },
+                },
+            ],
+            "processedRange": Array [
+                Object {
+                    "end": Object {
+                        "character": Number(9),
+                        "line": Number(8),
+                    },
+                    "start": Object {
+                        "character": Number(0),
+                        "line": Number(0),
+                    },
+                },
+            ],
+            "processingRange": Array [
+                Object {
+                    "end": Object {
+                        "character": Number(8),
+                        "line": Number(6),
+                    },
+                    "start": Object {
+                        "character": Number(6),
+                        "line": Number(5),
+                    },
+                },
+            ],
+            "uri": String("file:///Users/rogerburtonpatel/home/projects/rocq-n-roll/rust_rocq/test.v"),
+        },
+    }
+[2025-10-07T03:01:28Z DEBUG rust_rocq] Received message: Object {
+        "jsonrpc": String("2.0"),
+        "method": String("textDocument/publishDiagnostics"),
+        "params": Object {
+            "diagnostics": Array [
+                Object {
+                    "message": String("(* info auto: *)"),
+                    "range": Object {
+                        "end": Object {
+                            "character": Number(9),
+                            "line": Number(8),
+                        },
+                        "start": Object {
+                            "character": Number(4),
+                            "line": Number(8),
+                        },
+                    },
+                    "severity": Number(3),
+                },
+                Object {
+                    "message": String("simple apply @eq_refl (in core)."),
+                    "range": Object {
+                        "end": Object {
+                            "character": Number(9),
+                            "line": Number(8),
+                        },
+                        "start": Object {
+                            "character": Number(4),
+                            "line": Number(8),
+                        },
+                    },
+                    "severity": Number(3),
+                },
+                Object {
+                    "message": String("(* info auto: *)"),
+                    "range": Object {
+                        "end": Object {
+                            "character": Number(9),
+                            "line": Number(7),
+                        },
+                        "start": Object {
+                            "character": Number(4),
+                            "line": Number(7),
+                        },
+                    },
+                    "severity": Number(3),
+                },
+                Object {
+                    "message": String("simple apply eq_sym ; trivial (in core)."),
+                    "range": Object {
+                        "end": Object {
+                            "character": Number(9),
+                            "line": Number(7),
+                        },
+                        "start": Object {
+                            "character": Number(4),
+                            "line": Number(7),
+                        },
+                    },
+                    "severity": Number(3),
+                },
+            ],
+            "uri": String("file:///Users/rogerburtonpatel/home/projects/rocq-n-roll/rust_rocq/test.v"),
+        },
+    }
+[2025-10-07T03:01:28Z DEBUG rust_rocq] Received message: Object {
+        "jsonrpc": String("2.0"),
+        "method": String("vscoq/updateHighlights"),
+        "params": Object {
+            "preparedRange": Array [
+                Object {
+                    "end": Object {
+                        "character": Number(4),
+                        "line": Number(9),
+                    },
+                    "start": Object {
+                        "character": Number(3),
+                        "line": Number(7),
+                    },
+                },
+            ],
+            "processedRange": Array [
+                Object {
+                    "end": Object {
+                        "character": Number(9),
+                        "line": Number(8),
+                    },
+                    "start": Object {
+                        "character": Number(0),
+                        "line": Number(0),
+                    },
+                },
+            ],
+            "processingRange": Array [
+                Object {
+                    "end": Object {
+                        "character": Number(3),
+                        "line": Number(7),
+                    },
+                    "start": Object {
+                        "character": Number(8),
+                        "line": Number(6),
+                    },
+                },
+            ],
+            "uri": String("file:///Users/rogerburtonpatel/home/projects/rocq-n-roll/rust_rocq/test.v"),
+        },
+    }
+[2025-10-07T03:01:28Z DEBUG rust_rocq] Received message: Object {
+        "jsonrpc": String("2.0"),
+        "method": String("textDocument/publishDiagnostics"),
+        "params": Object {
+            "diagnostics": Array [
+                Object {
+                    "message": String("(* info auto: *)"),
+                    "range": Object {
+                        "end": Object {
+                            "character": Number(9),
+                            "line": Number(8),
+                        },
+                        "start": Object {
+                            "character": Number(4),
+                            "line": Number(8),
+                        },
+                    },
+                    "severity": Number(3),
+                },
+                Object {
+                    "message": String("simple apply @eq_refl (in core)."),
+                    "range": Object {
+                        "end": Object {
+                            "character": Number(9),
+                            "line": Number(8),
+                        },
+                        "start": Object {
+                            "character": Number(4),
+                            "line": Number(8),
+                        },
+                    },
+                    "severity": Number(3),
+                },
+                Object {
+                    "message": String("(* info auto: *)"),
+                    "range": Object {
+                        "end": Object {
+                            "character": Number(9),
+                            "line": Number(7),
+                        },
+                        "start": Object {
+                            "character": Number(4),
+                            "line": Number(7),
+                        },
+                    },
+                    "severity": Number(3),
+                },
+                Object {
+                    "message": String("simple apply eq_sym ; trivial (in core)."),
+                    "range": Object {
+                        "end": Object {
+                            "character": Number(9),
+                            "line": Number(7),
+                        },
+                        "start": Object {
+                            "character": Number(4),
+                            "line": Number(7),
+                        },
+                    },
+                    "severity": Number(3),
+                },
+            ],
+            "uri": String("file:///Users/rogerburtonpatel/home/projects/rocq-n-roll/rust_rocq/test.v"),
+        },
+    }
+[2025-10-07T03:01:28Z DEBUG rust_rocq] Received message: Object {
+        "jsonrpc": String("2.0"),
+        "method": String("vscoq/updateHighlights"),
+        "params": Object {
+            "preparedRange": Array [
+                Object {
+                    "end": Object {
+                        "character": Number(4),
+                        "line": Number(9),
+                    },
+                    "start": Object {
+                        "character": Number(9),
+                        "line": Number(7),
+                    },
+                },
+            ],
+            "processedRange": Array [
+                Object {
+                    "end": Object {
+                        "character": Number(9),
+                        "line": Number(8),
+                    },
+                    "start": Object {
+                        "character": Number(0),
+                        "line": Number(0),
+                    },
+                },
+            ],
+            "processingRange": Array [
+                Object {
+                    "end": Object {
+                        "character": Number(9),
+                        "line": Number(7),
+                    },
+                    "start": Object {
+                        "character": Number(3),
+                        "line": Number(7),
+                    },
+                },
+            ],
+            "uri": String("file:///Users/rogerburtonpatel/home/projects/rocq-n-roll/rust_rocq/test.v"),
+        },
+    }
+[2025-10-07T03:01:28Z DEBUG rust_rocq] Received message: Object {
+        "jsonrpc": String("2.0"),
+        "method": String("textDocument/publishDiagnostics"),
+        "params": Object {
+            "diagnostics": Array [
+                Object {
+                    "message": String("(* info auto: *)"),
+                    "range": Object {
+                        "end": Object {
+                            "character": Number(9),
+                            "line": Number(8),
+                        },
+                        "start": Object {
+                            "character": Number(4),
+                            "line": Number(8),
+                        },
+                    },
+                    "severity": Number(3),
+                },
+                Object {
+                    "message": String("simple apply @eq_refl (in core)."),
+                    "range": Object {
+                        "end": Object {
+                            "character": Number(9),
+                            "line": Number(8),
+                        },
+                        "start": Object {
+                            "character": Number(4),
+                            "line": Number(8),
+                        },
+                    },
+                    "severity": Number(3),
+                },
+                Object {
+                    "message": String("(* info auto: *)"),
+                    "range": Object {
+                        "end": Object {
+                            "character": Number(9),
+                            "line": Number(7),
+                        },
+                        "start": Object {
+                            "character": Number(4),
+                            "line": Number(7),
+                        },
+                    },
+                    "severity": Number(3),
+                },
+                Object {
+                    "message": String("simple apply eq_sym ; trivial (in core)."),
+                    "range": Object {
+                        "end": Object {
+                            "character": Number(9),
+                            "line": Number(7),
+                        },
+                        "start": Object {
+                            "character": Number(4),
+                            "line": Number(7),
+                        },
+                    },
+                    "severity": Number(3),
+                },
+            ],
+            "uri": String("file:///Users/rogerburtonpatel/home/projects/rocq-n-roll/rust_rocq/test.v"),
+        },
+    }
+[2025-10-07T03:01:28Z DEBUG rust_rocq] Received message: Object {
+        "jsonrpc": String("2.0"),
+        "method": String("vscoq/updateHighlights"),
+        "params": Object {
+            "preparedRange": Array [
+                Object {
+                    "end": Object {
+                        "character": Number(4),
+                        "line": Number(9),
+                    },
+                    "start": Object {
+                        "character": Number(3),
+                        "line": Number(8),
+                    },
+                },
+            ],
+            "processedRange": Array [
+                Object {
+                    "end": Object {
+                        "character": Number(9),
+                        "line": Number(8),
+                    },
+                    "start": Object {
+                        "character": Number(0),
+                        "line": Number(0),
+                    },
+                },
+            ],
+            "processingRange": Array [
+                Object {
+                    "end": Object {
+                        "character": Number(3),
+                        "line": Number(8),
+                    },
+                    "start": Object {
+                        "character": Number(9),
+                        "line": Number(7),
+                    },
+                },
+            ],
+            "uri": String("file:///Users/rogerburtonpatel/home/projects/rocq-n-roll/rust_rocq/test.v"),
+        },
+    }
+[2025-10-07T03:01:28Z DEBUG rust_rocq] Received message: Object {
+        "jsonrpc": String("2.0"),
+        "method": String("textDocument/publishDiagnostics"),
+        "params": Object {
+            "diagnostics": Array [
+                Object {
+                    "message": String("(* info auto: *)"),
+                    "range": Object {
+                        "end": Object {
+                            "character": Number(9),
+                            "line": Number(8),
+                        },
+                        "start": Object {
+                            "character": Number(4),
+                            "line": Number(8),
+                        },
+                    },
+                    "severity": Number(3),
+                },
+                Object {
+                    "message": String("simple apply @eq_refl (in core)."),
+                    "range": Object {
+                        "end": Object {
+                            "character": Number(9),
+                            "line": Number(8),
+                        },
+                        "start": Object {
+                            "character": Number(4),
+                            "line": Number(8),
+                        },
+                    },
+                    "severity": Number(3),
+                },
+                Object {
+                    "message": String("(* info auto: *)"),
+                    "range": Object {
+                        "end": Object {
+                            "character": Number(9),
+                            "line": Number(7),
+                        },
+                        "start": Object {
+                            "character": Number(4),
+                            "line": Number(7),
+                        },
+                    },
+                    "severity": Number(3),
+                },
+                Object {
+                    "message": String("simple apply eq_sym ; trivial (in core)."),
+                    "range": Object {
+                        "end": Object {
+                            "character": Number(9),
+                            "line": Number(7),
+                        },
+                        "start": Object {
+                            "character": Number(4),
+                            "line": Number(7),
+                        },
+                    },
+                    "severity": Number(3),
+                },
+            ],
+            "uri": String("file:///Users/rogerburtonpatel/home/projects/rocq-n-roll/rust_rocq/test.v"),
+        },
+    }
+[2025-10-07T03:01:28Z DEBUG rust_rocq] Received message: Object {
+        "jsonrpc": String("2.0"),
+        "method": String("vscoq/updateHighlights"),
+        "params": Object {
+            "preparedRange": Array [
+                Object {
+                    "end": Object {
+                        "character": Number(4),
+                        "line": Number(9),
+                    },
+                    "start": Object {
+                        "character": Number(9),
+                        "line": Number(8),
+                    },
+                },
+            ],
+            "processedRange": Array [
+                Object {
+                    "end": Object {
+                        "character": Number(9),
+                        "line": Number(8),
+                    },
+                    "start": Object {
+                        "character": Number(0),
+                        "line": Number(0),
+                    },
+                },
+            ],
+            "processingRange": Array [
+                Object {
+                    "end": Object {
+                        "character": Number(9),
+                        "line": Number(8),
+                    },
+                    "start": Object {
+                        "character": Number(3),
+                        "line": Number(8),
+                    },
+                },
+            ],
+            "uri": String("file:///Users/rogerburtonpatel/home/projects/rocq-n-roll/rust_rocq/test.v"),
+        },
+    }
+[2025-10-07T03:01:28Z DEBUG rust_rocq] Received message: Object {
+        "jsonrpc": String("2.0"),
+        "method": String("textDocument/publishDiagnostics"),
+        "params": Object {
+            "diagnostics": Array [
+                Object {
+                    "message": String("(* info auto: *)"),
+                    "range": Object {
+                        "end": Object {
+                            "character": Number(9),
+                            "line": Number(8),
+                        },
+                        "start": Object {
+                            "character": Number(4),
+                            "line": Number(8),
+                        },
+                    },
+                    "severity": Number(3),
+                },
+                Object {
+                    "message": String("simple apply @eq_refl (in core)."),
+                    "range": Object {
+                        "end": Object {
+                            "character": Number(9),
+                            "line": Number(8),
+                        },
+                        "start": Object {
+                            "character": Number(4),
+                            "line": Number(8),
+                        },
+                    },
+                    "severity": Number(3),
+                },
+                Object {
+                    "message": String("(* info auto: *)"),
+                    "range": Object {
+                        "end": Object {
+                            "character": Number(9),
+                            "line": Number(7),
+                        },
+                        "start": Object {
+                            "character": Number(4),
+                            "line": Number(7),
+                        },
+                    },
+                    "severity": Number(3),
+                },
+                Object {
+                    "message": String("simple apply eq_sym ; trivial (in core)."),
+                    "range": Object {
+                        "end": Object {
+                            "character": Number(9),
+                            "line": Number(7),
+                        },
+                        "start": Object {
+                            "character": Number(4),
+                            "line": Number(7),
+                        },
+                    },
+                    "severity": Number(3),
+                },
+            ],
+            "uri": String("file:///Users/rogerburtonpatel/home/projects/rocq-n-roll/rust_rocq/test.v"),
+        },
+    }
+[2025-10-07T03:01:28Z DEBUG rust_rocq] Received message: Object {
+        "jsonrpc": String("2.0"),
+        "method": String("vscoq/updateHighlights"),
+        "params": Object {
+            "preparedRange": Array [],
+            "processedRange": Array [
+                Object {
+                    "end": Object {
+                        "character": Number(9),
+                        "line": Number(8),
+                    },
+                    "start": Object {
+                        "character": Number(0),
+                        "line": Number(0),
+                    },
+                },
+            ],
+            "processingRange": Array [
+                Object {
+                    "end": Object {
+                        "character": Number(4),
+                        "line": Number(9),
+                    },
+                    "start": Object {
+                        "character": Number(9),
+                        "line": Number(8),
+                    },
+                },
+            ],
+            "uri": String("file:///Users/rogerburtonpatel/home/projects/rocq-n-roll/rust_rocq/test.v"),
+        },
+    }
+[2025-10-07T03:01:28Z DEBUG rust_rocq] Received message: Object {
+        "jsonrpc": String("2.0"),
+        "method": String("textDocument/publishDiagnostics"),
+        "params": Object {
+            "diagnostics": Array [
+                Object {
+                    "message": String("(* info auto: *)"),
+                    "range": Object {
+                        "end": Object {
+                            "character": Number(9),
+                            "line": Number(8),
+                        },
+                        "start": Object {
+                            "character": Number(4),
+                            "line": Number(8),
+                        },
+                    },
+                    "severity": Number(3),
+                },
+                Object {
+                    "message": String("simple apply @eq_refl (in core)."),
+                    "range": Object {
+                        "end": Object {
+                            "character": Number(9),
+                            "line": Number(8),
+                        },
+                        "start": Object {
+                            "character": Number(4),
+                            "line": Number(8),
+                        },
+                    },
+                    "severity": Number(3),
+                },
+                Object {
+                    "message": String("(* info auto: *)"),
+                    "range": Object {
+                        "end": Object {
+                            "character": Number(9),
+                            "line": Number(7),
+                        },
+                        "start": Object {
+                            "character": Number(4),
+                            "line": Number(7),
+                        },
+                    },
+                    "severity": Number(3),
+                },
+                Object {
+                    "message": String("simple apply eq_sym ; trivial (in core)."),
+                    "range": Object {
+                        "end": Object {
+                            "character": Number(9),
+                            "line": Number(7),
+                        },
+                        "start": Object {
+                            "character": Number(4),
+                            "line": Number(7),
+                        },
+                    },
+                    "severity": Number(3),
+                },
+            ],
+            "uri": String("file:///Users/rogerburtonpatel/home/projects/rocq-n-roll/rust_rocq/test.v"),
+        },
+    }
+[2025-10-07T03:01:28Z DEBUG rust_rocq] Received message: Object {
+        "jsonrpc": String("2.0"),
+        "method": String("vscoq/updateHighlights"),
+        "params": Object {
+            "preparedRange": Array [],
+            "processedRange": Array [
+                Object {
+                    "end": Object {
+                        "character": Number(4),
+                        "line": Number(9),
+                    },
+                    "start": Object {
+                        "character": Number(0),
+                        "line": Number(0),
+                    },
+                },
+            ],
+            "processingRange": Array [],
+            "uri": String("file:///Users/rogerburtonpatel/home/projects/rocq-n-roll/rust_rocq/test.v"),
+        },
+    }
+[2025-10-07T03:01:28Z DEBUG rust_rocq] Received message: Object {
+        "jsonrpc": String("2.0"),
+        "method": String("textDocument/publishDiagnostics"),
+        "params": Object {
+            "diagnostics": Array [
+                Object {
+                    "message": String("(* info auto: *)"),
+                    "range": Object {
+                        "end": Object {
+                            "character": Number(9),
+                            "line": Number(8),
+                        },
+                        "start": Object {
+                            "character": Number(4),
+                            "line": Number(8),
+                        },
+                    },
+                    "severity": Number(3),
+                },
+                Object {
+                    "message": String("simple apply @eq_refl (in core)."),
+                    "range": Object {
+                        "end": Object {
+                            "character": Number(9),
+                            "line": Number(8),
+                        },
+                        "start": Object {
+                            "character": Number(4),
+                            "line": Number(8),
+                        },
+                    },
+                    "severity": Number(3),
+                },
+                Object {
+                    "message": String("(* info auto: *)"),
+                    "range": Object {
+                        "end": Object {
+                            "character": Number(9),
+                            "line": Number(7),
+                        },
+                        "start": Object {
+                            "character": Number(4),
+                            "line": Number(7),
+                        },
+                    },
+                    "severity": Number(3),
+                },
+                Object {
+                    "message": String("simple apply eq_sym ; trivial (in core)."),
+                    "range": Object {
+                        "end": Object {
+                            "character": Number(9),
+                            "line": Number(7),
+                        },
+                        "start": Object {
+                            "character": Number(4),
+                            "line": Number(7),
+                        },
+                    },
+                    "severity": Number(3),
+                },
+            ],
+            "uri": String("file:///Users/rogerburtonpatel/home/projects/rocq-n-roll/rust_rocq/test.v"),
+        },
+    }
+[2025-10-07T03:01:28Z DEBUG rust_rocq] Received message: Object {
+        "jsonrpc": String("2.0"),
+        "method": String("vscoq/updateHighlights"),
+        "params": Object {
+            "preparedRange": Array [],
+            "processedRange": Array [
+                Object {
+                    "end": Object {
+                        "character": Number(4),
+                        "line": Number(9),
+                    },
+                    "start": Object {
+                        "character": Number(0),
+                        "line": Number(0),
+                    },
+                },
+            ],
+            "processingRange": Array [],
+            "uri": String("file:///Users/rogerburtonpatel/home/projects/rocq-n-roll/rust_rocq/test.v"),
+        },
+    }
+[2025-10-07T03:01:28Z DEBUG rust_rocq] Received message: Object {
+        "jsonrpc": String("2.0"),
+        "method": String("textDocument/publishDiagnostics"),
+        "params": Object {
+            "diagnostics": Array [
+                Object {
+                    "message": String("(* info auto: *)"),
+                    "range": Object {
+                        "end": Object {
+                            "character": Number(9),
+                            "line": Number(8),
+                        },
+                        "start": Object {
+                            "character": Number(4),
+                            "line": Number(8),
+                        },
+                    },
+                    "severity": Number(3),
+                },
+                Object {
+                    "message": String("simple apply @eq_refl (in core)."),
+                    "range": Object {
+                        "end": Object {
+                            "character": Number(9),
+                            "line": Number(8),
+                        },
+                        "start": Object {
+                            "character": Number(4),
+                            "line": Number(8),
+                        },
+                    },
+                    "severity": Number(3),
+                },
+                Object {
+                    "message": String("(* info auto: *)"),
+                    "range": Object {
+                        "end": Object {
+                            "character": Number(9),
+                            "line": Number(7),
+                        },
+                        "start": Object {
+                            "character": Number(4),
+                            "line": Number(7),
+                        },
+                    },
+                    "severity": Number(3),
+                },
+                Object {
+                    "message": String("simple apply eq_sym ; trivial (in core)."),
+                    "range": Object {
+                        "end": Object {
+                            "character": Number(9),
+                            "line": Number(7),
+                        },
+                        "start": Object {
+                            "character": Number(4),
+                            "line": Number(7),
+                        },
+                    },
+                    "severity": Number(3),
+                },
+            ],
+            "uri": String("file:///Users/rogerburtonpatel/home/projects/rocq-n-roll/rust_rocq/test.v"),
+        },
+    }
+[2025-10-07T03:01:28Z DEBUG rust_rocq] Received message: Object {
+        "jsonrpc": String("2.0"),
+        "method": String("vscoq/updateHighlights"),
+        "params": Object {
+            "preparedRange": Array [],
+            "processedRange": Array [
+                Object {
+                    "end": Object {
+                        "character": Number(4),
+                        "line": Number(9),
+                    },
+                    "start": Object {
+                        "character": Number(0),
+                        "line": Number(0),
+                    },
+                },
+            ],
+            "processingRange": Array [],
+            "uri": String("file:///Users/rogerburtonpatel/home/projects/rocq-n-roll/rust_rocq/test.v"),
+        },
+    }
+[2025-10-07T03:01:28Z DEBUG rust_rocq] Received message: Object {
+        "jsonrpc": String("2.0"),
+        "method": String("textDocument/publishDiagnostics"),
+        "params": Object {
+            "diagnostics": Array [
+                Object {
+                    "message": String("(* info auto: *)"),
+                    "range": Object {
+                        "end": Object {
+                            "character": Number(9),
+                            "line": Number(8),
+                        },
+                        "start": Object {
+                            "character": Number(4),
+                            "line": Number(8),
+                        },
+                    },
+                    "severity": Number(3),
+                },
+                Object {
+                    "message": String("simple apply @eq_refl (in core)."),
+                    "range": Object {
+                        "end": Object {
+                            "character": Number(9),
+                            "line": Number(8),
+                        },
+                        "start": Object {
+                            "character": Number(4),
+                            "line": Number(8),
+                        },
+                    },
+                    "severity": Number(3),
+                },
+                Object {
+                    "message": String("(* info auto: *)"),
+                    "range": Object {
+                        "end": Object {
+                            "character": Number(9),
+                            "line": Number(7),
+                        },
+                        "start": Object {
+                            "character": Number(4),
+                            "line": Number(7),
+                        },
+                    },
+                    "severity": Number(3),
+                },
+                Object {
+                    "message": String("simple apply eq_sym ; trivial (in core)."),
+                    "range": Object {
+                        "end": Object {
+                            "character": Number(9),
+                            "line": Number(7),
+                        },
+                        "start": Object {
+                            "character": Number(4),
+                            "line": Number(7),
+                        },
+                    },
+                    "severity": Number(3),
+                },
+            ],
+            "uri": String("file:///Users/rogerburtonpatel/home/projects/rocq-n-roll/rust_rocq/test.v"),
+        },
+    }
+[2025-10-07T03:01:28Z DEBUG rust_rocq] Received message: Object {
+        "jsonrpc": String("2.0"),
+        "method": String("vscoq/proofView"),
+        "params": Object {
+            "messages": Array [
+                Array [
+                    Number(3),
+                    Array [
+                        String("Ppcmd_glue"),
+                        Array [
+                            Array [
+                                String("Ppcmd_string"),
+                                String("simple_add"),
+                            ],
+                            Array [
+                                String("Ppcmd_string"),
+                                String(" is defined"),
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+            "proof": Object {
+                "givenUpGoals": Array [],
+                "goals": Array [
+                    Object {
+                        "goal": Array [
+                            String("Ppcmd_box"),
+                            Array [
+                                String("Pp_hovbox"),
+                                Number(0),
+                            ],
+                            Array [
+                                String("Ppcmd_glue"),
+                                Array [
+                                    Array [
+                                        String("Ppcmd_box"),
+                                        Array [
+                                            String("Pp_hovbox"),
+                                            Number(2),
+                                        ],
+                                        Array [
+                                            String("Ppcmd_glue"),
+                                            Array [
+                                                Array [
+                                                    String("Ppcmd_tag"),
+                                                    String("constr.keyword"),
+                                                    Array [
+                                                        String("Ppcmd_string"),
+                                                        String("forall"),
+                                                    ],
+                                                ],
+                                                Array [
+                                                    String("Ppcmd_print_break"),
+                                                    Number(1),
+                                                    Number(0),
+                                                ],
+                                                Array [
+                                                    String("Ppcmd_box"),
+                                                    Array [
+                                                        String("Pp_hovbox"),
+                                                        Number(1),
+                                                    ],
+                                                    Array [
+                                                        String("Ppcmd_glue"),
+                                                        Array [
+                                                            Array [
+                                                                String("Ppcmd_string"),
+                                                                String("n"),
+                                                            ],
+                                                            Array [
+                                                                String("Ppcmd_string"),
+                                                                String(" : "),
+                                                            ],
+                                                            Array [
+                                                                String("Ppcmd_tag"),
+                                                                String("constr.variable"),
+                                                                Array [
+                                                                    String("Ppcmd_string"),
+                                                                    String("nat"),
+                                                                ],
+                                                            ],
+                                                        ],
+                                                    ],
+                                                ],
+                                            ],
+                                        ],
+                                    ],
+                                    Array [
+                                        String("Ppcmd_string"),
+                                        String(","),
+                                    ],
+                                    Array [
+                                        String("Ppcmd_print_break"),
+                                        Number(1),
+                                        Number(0),
+                                    ],
+                                    Array [
+                                        String("Ppcmd_box"),
+                                        Array [
+                                            String("Pp_hovbox"),
+                                            Number(0),
+                                        ],
+                                        Array [
+                                            String("Ppcmd_glue"),
+                                            Array [
+                                                Array [
+                                                    String("Ppcmd_box"),
+                                                    Array [
+                                                        String("Pp_hovbox"),
+                                                        Number(0),
+                                                    ],
+                                                    Array [
+                                                        String("Ppcmd_glue"),
+                                                        Array [
+                                                            Array [
+                                                                String("Ppcmd_tag"),
+                                                                String("constr.variable"),
+                                                                Array [
+                                                                    String("Ppcmd_string"),
+                                                                    String("n"),
+                                                                ],
+                                                            ],
+                                                            Array [
+                                                                String("Ppcmd_tag"),
+                                                                String("constr.notation"),
+                                                                Array [
+                                                                    String("Ppcmd_string"),
+                                                                    String(" +"),
+                                                                ],
+                                                            ],
+                                                            Array [
+                                                                String("Ppcmd_print_break"),
+                                                                Number(1),
+                                                                Number(0),
+                                                            ],
+                                                            Array [
+                                                                String("Ppcmd_string"),
+                                                                String("0"),
+                                                            ],
+                                                        ],
+                                                    ],
+                                                ],
+                                                Array [
+                                                    String("Ppcmd_tag"),
+                                                    String("constr.notation"),
+                                                    Array [
+                                                        String("Ppcmd_string"),
+                                                        String(" ="),
+                                                    ],
+                                                ],
+                                                Array [
+                                                    String("Ppcmd_print_break"),
+                                                    Number(1),
+                                                    Number(0),
+                                                ],
+                                                Array [
+                                                    String("Ppcmd_tag"),
+                                                    String("constr.variable"),
+                                                    Array [
+                                                        String("Ppcmd_string"),
+                                                        String("n"),
+                                                    ],
+                                                ],
+                                            ],
+                                        ],
+                                    ],
+                                ],
+                            ],
+                        ],
+                        "hypotheses": Array [],
+                        "id": Number(2),
+                    },
+                ],
+                "shelvedGoals": Array [],
+                "unfocusedGoals": Array [
+                    Object {
+                        "goal": Array [
+                            String("Ppcmd_box"),
+                            Array [
+                                String("Pp_hovbox"),
+                                Number(0),
+                            ],
+                            Array [
+                                String("Ppcmd_glue"),
+                                Array [
+                                    Array [
+                                        String("Ppcmd_box"),
+                                        Array [
+                                            String("Pp_hovbox"),
+                                            Number(2),
+                                        ],
+                                        Array [
+                                            String("Ppcmd_glue"),
+                                            Array [
+                                                Array [
+                                                    String("Ppcmd_tag"),
+                                                    String("constr.keyword"),
+                                                    Array [
+                                                        String("Ppcmd_string"),
+                                                        String("forall"),
+                                                    ],
+                                                ],
+                                                Array [
+                                                    String("Ppcmd_print_break"),
+                                                    Number(1),
+                                                    Number(0),
+                                                ],
+                                                Array [
+                                                    String("Ppcmd_box"),
+                                                    Array [
+                                                        String("Pp_hovbox"),
+                                                        Number(1),
+                                                    ],
+                                                    Array [
+                                                        String("Ppcmd_glue"),
+                                                        Array [
+                                                            Array [
+                                                                String("Ppcmd_string"),
+                                                                String("n"),
+                                                            ],
+                                                            Array [
+                                                                String("Ppcmd_string"),
+                                                                String(" : "),
+                                                            ],
+                                                            Array [
+                                                                String("Ppcmd_tag"),
+                                                                String("constr.variable"),
+                                                                Array [
+                                                                    String("Ppcmd_string"),
+                                                                    String("nat"),
+                                                                ],
+                                                            ],
+                                                        ],
+                                                    ],
+                                                ],
+                                            ],
+                                        ],
+                                    ],
+                                    Array [
+                                        String("Ppcmd_string"),
+                                        String(","),
+                                    ],
+                                    Array [
+                                        String("Ppcmd_print_break"),
+                                        Number(1),
+                                        Number(0),
+                                    ],
+                                    Array [
+                                        String("Ppcmd_box"),
+                                        Array [
+                                            String("Pp_hovbox"),
+                                            Number(0),
+                                        ],
+                                        Array [
+                                            String("Ppcmd_glue"),
+                                            Array [
+                                                Array [
+                                                    String("Ppcmd_box"),
+                                                    Array [
+                                                        String("Pp_hovbox"),
+                                                        Number(0),
+                                                    ],
+                                                    Array [
+                                                        String("Ppcmd_glue"),
+                                                        Array [
+                                                            Array [
+                                                                String("Ppcmd_tag"),
+                                                                String("constr.variable"),
+                                                                Array [
+                                                                    String("Ppcmd_string"),
+                                                                    String("n"),
+                                                                ],
+                                                            ],
+                                                            Array [
+                                                                String("Ppcmd_tag"),
+                                                                String("constr.notation"),
+                                                                Array [
+                                                                    String("Ppcmd_string"),
+                                                                    String(" +"),
+                                                                ],
+                                                            ],
+                                                            Array [
+                                                                String("Ppcmd_print_break"),
+                                                                Number(1),
+                                                                Number(0),
+                                                            ],
+                                                            Array [
+                                                                String("Ppcmd_string"),
+                                                                String("0"),
+                                                            ],
+                                                        ],
+                                                    ],
+                                                ],
+                                                Array [
+                                                    String("Ppcmd_tag"),
+                                                    String("constr.notation"),
+                                                    Array [
+                                                        String("Ppcmd_string"),
+                                                        String(" ="),
+                                                    ],
+                                                ],
+                                                Array [
+                                                    String("Ppcmd_print_break"),
+                                                    Number(1),
+                                                    Number(0),
+                                                ],
+                                                Array [
+                                                    String("Ppcmd_tag"),
+                                                    String("constr.variable"),
+                                                    Array [
+                                                        String("Ppcmd_string"),
+                                                        String("n"),
+                                                    ],
+                                                ],
+                                            ],
+                                        ],
+                                    ],
+                                ],
+                            ],
+                        ],
+                        "hypotheses": Array [],
+                        "id": Number(2),
+                    },
+                ],
+            },
+        },
+    }
+[2025-10-07T03:01:28Z DEBUG rust_rocq] {"jsonrpc":"2.0","method":"vscoq/proofView","params":{"messages":[[3,["Ppcmd_glue",[["Ppcmd_string","simple_add"],["Ppcmd_string"," is defined"]]]]],"proof":{"givenUpGoals":[],"goals":[{"goal":["Ppcmd_box",["Pp_hovbox",0],["Ppcmd_glue",[["Ppcmd_box",["Pp_hovbox",2],["Ppcmd_glue",[["Ppcmd_tag","constr.keyword",["Ppcmd_string","forall"]],["Ppcmd_print_break",1,0],["Ppcmd_box",["Pp_hovbox",1],["Ppcmd_glue",[["Ppcmd_string","n"],["Ppcmd_string"," : "],["Ppcmd_tag","constr.variable",["Ppcmd_string","nat"]]]]]]]],["Ppcmd_string",","],["Ppcmd_print_break",1,0],["Ppcmd_box",["Pp_hovbox",0],["Ppcmd_glue",[["Ppcmd_box",["Pp_hovbox",0],["Ppcmd_glue",[["Ppcmd_tag","constr.variable",["Ppcmd_string","n"]],["Ppcmd_tag","constr.notation",["Ppcmd_string"," +"]],["Ppcmd_print_break",1,0],["Ppcmd_string","0"]]]],["Ppcmd_tag","constr.notation",["Ppcmd_string"," ="]],["Ppcmd_print_break",1,0],["Ppcmd_tag","constr.variable",["Ppcmd_string","n"]]]]]]]],"hypotheses":[],"id":2}],"shelvedGoals":[],"unfocusedGoals":[{"goal":["Ppcmd_box",["Pp_hovbox",0],["Ppcmd_glue",[["Ppcmd_box",["Pp_hovbox",2],["Ppcmd_glue",[["Ppcmd_tag","constr.keyword",["Ppcmd_string","forall"]],["Ppcmd_print_break",1,0],["Ppcmd_box",["Pp_hovbox",1],["Ppcmd_glue",[["Ppcmd_string","n"],["Ppcmd_string"," : "],["Ppcmd_tag","constr.variable",["Ppcmd_string","nat"]]]]]]]],["Ppcmd_string",","],["Ppcmd_print_break",1,0],["Ppcmd_box",["Pp_hovbox",0],["Ppcmd_glue",[["Ppcmd_box",["Pp_hovbox",0],["Ppcmd_glue",[["Ppcmd_tag","constr.variable",["Ppcmd_string","n"]],["Ppcmd_tag","constr.notation",["Ppcmd_string"," +"]],["Ppcmd_print_break",1,0],["Ppcmd_string","0"]]]],["Ppcmd_tag","constr.notation",["Ppcmd_string"," ="]],["Ppcmd_print_break",1,0],["Ppcmd_tag","constr.variable",["Ppcmd_string","n"]]]]]]]],"hypotheses":[],"id":2}]}}}
+State after executing 'Qed.':
+Raw Response:
+{
+  "messages": [
+    [
+      3,
+      [
+        "Ppcmd_glue",
+        [
+          [
+            "Ppcmd_string",
+            "simple_add"
+          ],
+          [
+            "Ppcmd_string",
+            " is defined"
+          ]
+        ]
+      ]
+    ]
+  ],
+  "proof": {
+    "givenUpGoals": [],
+    "goals": [
+      {
+        "goal": [
+          "Ppcmd_box",
+          [
+            "Pp_hovbox",
+            0
+          ],
+          [
+            "Ppcmd_glue",
+            [
+              [
+                "Ppcmd_box",
+                [
+                  "Pp_hovbox",
+                  2
+                ],
+                [
+                  "Ppcmd_glue",
+                  [
+                    [
+                      "Ppcmd_tag",
+                      "constr.keyword",
+                      [
+                        "Ppcmd_string",
+                        "forall"
+                      ]
+                    ],
+                    [
+                      "Ppcmd_print_break",
+                      1,
+                      0
+                    ],
+                    [
+                      "Ppcmd_box",
+                      [
+                        "Pp_hovbox",
+                        1
+                      ],
+                      [
+                        "Ppcmd_glue",
+                        [
+                          [
+                            "Ppcmd_string",
+                            "n"
+                          ],
+                          [
+                            "Ppcmd_string",
+                            " : "
+                          ],
+                          [
+                            "Ppcmd_tag",
+                            "constr.variable",
+                            [
+                              "Ppcmd_string",
+                              "nat"
+                            ]
+                          ]
+                        ]
+                      ]
+                    ]
+                  ]
+                ]
+              ],
+              [
+                "Ppcmd_string",
+                ","
+              ],
+              [
+                "Ppcmd_print_break",
+                1,
+                0
+              ],
+              [
+                "Ppcmd_box",
+                [
+                  "Pp_hovbox",
+                  0
+                ],
+                [
+                  "Ppcmd_glue",
+                  [
+                    [
+                      "Ppcmd_box",
+                      [
+                        "Pp_hovbox",
+                        0
+                      ],
+                      [
+                        "Ppcmd_glue",
+                        [
+                          [
+                            "Ppcmd_tag",
+                            "constr.variable",
+                            [
+                              "Ppcmd_string",
+                              "n"
+                            ]
+                          ],
+                          [
+                            "Ppcmd_tag",
+                            "constr.notation",
+                            [
+                              "Ppcmd_string",
+                              " +"
+                            ]
+                          ],
+                          [
+                            "Ppcmd_print_break",
+                            1,
+                            0
+                          ],
+                          [
+                            "Ppcmd_string",
+                            "0"
+                          ]
+                        ]
+                      ]
+                    ],
+                    [
+                      "Ppcmd_tag",
+                      "constr.notation",
+                      [
+                        "Ppcmd_string",
+                        " ="
+                      ]
+                    ],
+                    [
+                      "Ppcmd_print_break",
+                      1,
+                      0
+                    ],
+                    [
+                      "Ppcmd_tag",
+                      "constr.variable",
+                      [
+                        "Ppcmd_string",
+                        "n"
+                      ]
+                    ]
+                  ]
+                ]
+              ]
+            ]
+          ]
+        ],
+        "hypotheses": [],
+        "id": 2
+      }
+    ],
+    "shelvedGoals": [],
+    "unfocusedGoals": [
+      {
+        "goal": [
+          "Ppcmd_box",
+          [
+            "Pp_hovbox",
+            0
+          ],
+          [
+            "Ppcmd_glue",
+            [
+              [
+                "Ppcmd_box",
+                [
+                  "Pp_hovbox",
+                  2
+                ],
+                [
+                  "Ppcmd_glue",
+                  [
+                    [
+                      "Ppcmd_tag",
+                      "constr.keyword",
+                      [
+                        "Ppcmd_string",
+                        "forall"
+                      ]
+                    ],
+                    [
+                      "Ppcmd_print_break",
+                      1,
+                      0
+                    ],
+                    [
+                      "Ppcmd_box",
+                      [
+                        "Pp_hovbox",
+                        1
+                      ],
+                      [
+                        "Ppcmd_glue",
+                        [
+                          [
+                            "Ppcmd_string",
+                            "n"
+                          ],
+                          [
+                            "Ppcmd_string",
+                            " : "
+                          ],
+                          [
+                            "Ppcmd_tag",
+                            "constr.variable",
+                            [
+                              "Ppcmd_string",
+                              "nat"
+                            ]
+                          ]
+                        ]
+                      ]
+                    ]
+                  ]
+                ]
+              ],
+              [
+                "Ppcmd_string",
+                ","
+              ],
+              [
+                "Ppcmd_print_break",
+                1,
+                0
+              ],
+              [
+                "Ppcmd_box",
+                [
+                  "Pp_hovbox",
+                  0
+                ],
+                [
+                  "Ppcmd_glue",
+                  [
+                    [
+                      "Ppcmd_box",
+                      [
+                        "Pp_hovbox",
+                        0
+                      ],
+                      [
+                        "Ppcmd_glue",
+                        [
+                          [
+                            "Ppcmd_tag",
+                            "constr.variable",
+                            [
+                              "Ppcmd_string",
+                              "n"
+                            ]
+                          ],
+                          [
+                            "Ppcmd_tag",
+                            "constr.notation",
+                            [
+                              "Ppcmd_string",
+                              " +"
+                            ]
+                          ],
+                          [
+                            "Ppcmd_print_break",
+                            1,
+                            0
+                          ],
+                          [
+                            "Ppcmd_string",
+                            "0"
+                          ]
+                        ]
+                      ]
+                    ],
+                    [
+                      "Ppcmd_tag",
+                      "constr.notation",
+                      [
+                        "Ppcmd_string",
+                        " ="
+                      ]
+                    ],
+                    [
+                      "Ppcmd_print_break",
+                      1,
+                      0
+                    ],
+                    [
+                      "Ppcmd_tag",
+                      "constr.variable",
+                      [
+                        "Ppcmd_string",
+                        "n"
+                      ]
+                    ]
+                  ]
+                ]
+              ]
+            ]
+          ]
+        ],
+        "hypotheses": [],
+        "id": 2
+      }
+    ]
+  }
+}
+  [3,["Ppcmd_glue",[["Ppcmd_string","simple_add"],["Ppcmd_string"," is defined"]]]]
+
+
+[GOALS] Active: 1, Shelved: 0, Unfocused: 1
+[PARSE] Line 'Qed.' split by semicolon -> 1 tactic(s): ["Qed."]
+[PARSE] Final tactics to send: ["Qed."]
+[MIDI] Sending to MIDI: 'Qed.'
+
+[MIDI] Processing tactic: 'Qed.' -> 'qed.'
+[PROOF STATE DIFF] Step 4/4
+  Previous: goals=0, shelved=0, unfocused=0
+  Current:  goals=1, shelved=0, unfocused=1
+  Delta:    goals=+1, shelved=+0, unfocused=+1
+
+------------------------------------------------------------
+
+Proof complete! All steps executed.
+Proof session ended.
+Press any key to stop all notes and exit.

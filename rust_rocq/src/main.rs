@@ -297,7 +297,7 @@ pub fn req_lsp_and_play_midi(
             let method = msg.get("method").and_then(|m| m.as_str()).unwrap_or("");
 
             if method == "vscoq/proofView" {
-                println!("{}", msg);
+                debug!("{}", msg);
                 if let Some(params) = msg.get("params") {
                     println!("State after executing '{}':", line_text);
                     println!("{}", format_goals(params));
@@ -742,7 +742,5 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 pub fn debug_enabled() -> bool {
-    env::vars().any(|(key, val)| {
-        key.to_lowercase().contains("debug") || val.to_lowercase().contains("debug")
-    })
+    env::var("RUST_LOG") == Ok("debug".to_string())
 }

@@ -13,21 +13,25 @@ pub fn format_goals(result: &Value) -> String {
         output.push('\n');
     }
 
+    // println!("GOOOOALS: {:#?}", result.get("goals"));
     // Check if there are any goals
-    if let Some(goals_config) = result.get("goals") {
+
+    if let Some(proof) = result.get("proof") {
+        if let Some(goals_config) = proof.get("goals") {
         // Format foreground goals
-        format_main_goals(&mut output, goals_config);
+            format_main_goals(&mut output, goals_config);
+        }
 
         // Format shelved goals if any
-        if let Some(shelf) = goals_config.get("shelf") {
+        if let Some(shelf) = proof.get("shelvedGoals") {
             format_shelved_goals(&mut output, shelf);
         }
 
         // Format given up goals if any
-        if let Some(given_up) = goals_config.get("given_up") {
+        if let Some(given_up) = proof.get("givenUpGoals") {
             format_given_up_goals(&mut output, given_up);
         }
-    }
+}
 
     // Format any messages
     if let Some(messages) = result.get("messages") {

@@ -41,6 +41,8 @@ struct Args {
 
 const JSON_VERSION: u64 = 1;
 const MIDI_TEST_NOTE_DURATION_DEFAULT: Option<Duration> = Some(Duration::from_millis(1100));
+// used for interpretToPoint. 
+const MAX_LINE_LENGTH: usize = 9999;
 
 #[derive(Clone, Debug)]
 pub struct ProofStateSnapshot {
@@ -251,28 +253,12 @@ pub fn req_lsp_and_play_midi(
     let (line_num, line_text) = state.get_current_tactic().map(|(n, t)| (*n, t.clone())).unwrap_or((0, String::new()));
     debug!("\nExecuting step {}/{}...", state.current_step + 1, state.total_steps);
 
-    let interpret_msg = json!({
-        "jsonrpc": "2.0",
-        "method": "vscoq/interpretToPoint",
-        "params": {
-            "textDocument": {
-                "uri": state.document_uri.clone(),
-                "version": JSON_VERSION
-            },
-            "position": {
-                "line": line_num,
-                "character": 999
-            }
-        }
-    });
-
-        debug!("Sending interpretToPoint: {}", interpret_msg);
  // Send vscoq/interpretToPoint request
         if let Err(e) = state.vscoq_lsp.interpret_to_point(
                 state.document_uri.clone(), 
                 JSON_VERSION, 
                 line_num, 
-                999) {
+                MAX_LINE_LENGTH) {
             eprintln!("Error sending interpretToPoint: {e}");
             return;
         }

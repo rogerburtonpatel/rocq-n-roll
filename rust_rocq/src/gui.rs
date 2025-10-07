@@ -4,7 +4,7 @@ use rand::Rng;
 use serde_json::json;
 use std::time::{Duration, Instant};
 
-use crate::{formatting::format_goals, is_invisible_transition, lsp, midi::process_tactic_to_midi, ProofStepperState, JSON_VERSION, MIDI_TEST_NOTE_DURATION_DEFAULT};
+use crate::{formatting::format_goals, midi::process_tactic_to_midi, ProofStepperState, JSON_VERSION, MIDI_TEST_NOTE_DURATION_DEFAULT};
 
 // Adjust 
 const PROOF_FONT_SIZE    : f32 = 12.0;
@@ -152,9 +152,8 @@ impl RocqVisualizer {
                         self.show_flicker_message("Frank Pfenning".to_string());
                     }
                     egui::Key::Escape => {
-                            let close_params = json!({ "textDocument": { "uri": self.proof_state.document_uri } });
-                            if let Err(e) = self.proof_state.rocq_lsp.send_notification("textDocument/didClose", &close_params) {
-                                eprintln!("Error closing Rocq lsp: {e}");
+                            if let Err(e) = self.proof_state.vscoq_lsp.close_document(&self.proof_state.document_uri) {
+                                eprintln!("Error closing vscoq document: {e}");
                             }
                             self.proof_state.midi_output.stop_all_notes(None);
                             ctx.send_viewport_cmd(egui::ViewportCommand::Close);
@@ -168,119 +167,64 @@ impl RocqVisualizer {
     }
 
     fn req_lsp_and_play_midi(&mut self) {
-        let line_text = self.proof_state.get_current_tactic().map(|(_, t)| t.clone()).unwrap_or_default();
+        let (line_num, line_text) = self.proof_state.get_current_tactic()
+            .map(|(n, t)| (*n, t.clone()))
+            .unwrap_or((0, String::new()));
+
         println!("\nExecuting step {}/{}...", self.proof_state.current_step + 1, self.proof_state.total_steps);
-    
-        // Request goals at the LSP position (accounting for any offset)
-        let lsp_line = self.proof_state.get_lsp_line_number(&self.proof_state.rocq_lsp);
-        let goals_params = json!({
-            "textDocument": {
-                "uri": self.proof_state.document_uri,
-                "version": JSON_VERSION
-            },
-            "position": {
-                "line": lsp_line,
-                "character": 0
+
+        // Send vscoq/interpretToPoint request
+        if let Err(e) = self.proof_state.send_message(&json!({
+            "jsonrpc": "2.0",
+            "method": "vscoq/interpretToPoint",
+            "params": {
+                "textDocument": {
+                    "uri": self.proof_state.document_uri.clone(),
+                    "version": JSON_VERSION
+                },
+                "position": {
+                    "line": line_num,
+                    "character": 999
+                }
             }
-        });
-    
-        let request_id = self.proof_state.current_step as u64 + lsp::COQ_LSP_STEP_OFFSET;
-    
-        if let Err(e) = self.proof_state.rocq_lsp.send_request(request_id, "proof/goals", &goals_params) {
-            eprintln!("Error on sending request to Rocq lsp: {e}");
-        };
-    
-        // Wait for and process response
-        let mut found_response = false;
-    
-        while let Some(message) = self.proof_state.rocq_lsp.recv(Duration::from_secs(5)) {
-            if let Some(id) = message.get("id") {
-                const INVIS_STEP_OFFSET: u64 = 1000;
-                if id.as_u64() == Some(request_id) {
-    
-                    // if debug {
-                    //     println!("MESSAGE {}", responses_received);
-                    //     println!("{:#?}", message);
-                    //     println!("END MESSAGE");
-                    // }
-    
-                    // Check if this is an invisible transition step
-                    if is_invisible_transition(&message) {
-                        println!("Detected invisible proof transition, adjusting offset...");
-                        self.proof_state.rocq_lsp.lsp_position_offset += 1;
-                
-                        // Make another request with the adjusted position
-                        let adjusted_goals_params = json!({
-                            "textDocument": {
-                                "uri": self.proof_state.document_uri,
-                                "version": JSON_VERSION
-                            },
-                            "position": {
-                                "line": self.proof_state.get_lsp_line_number(&self.proof_state.rocq_lsp),
-                                "character": 0
-                            }
-                        });
-    
-                        if let Err(e) = self.proof_state.rocq_lsp.send_request(
-                            request_id + INVIS_STEP_OFFSET,
-                            "proof/goals",
-                            &adjusted_goals_params,
-                        ) {
-                        eprintln!("Error on sending request to Rocq lsp: {e}");
-                        }
-                        continue;
-                    }
-    
-                    if let Some(result) = message.get("result") {
-                        found_response = true;
-    
-                        println!("self.proof_state after executing '{}':", line_text);
-                        println!("{}", format_goals(result, false));
-                
-                        // Store the current goals self.proof_state for replay
-                        self.proof_state.last_goals_state = result.clone();
-    
-                        // Process this proof self.proof_state to MIDI
-                        process_tactic_to_midi(&self.proof_state.midi_output, &line_text, result, 
-                        Some(Duration::from_millis(MIDI_TEST_NOTE_DURATION_DEFAULT)));
-    
-                        break;
-                
-                    } else if let Some(error) = message.get("error") {
-                        println!("Error: {}", error);
-                        found_response = true;
+        })) {
+            eprintln!("Error sending interpretToPoint: {e}");
+            return;
+        }
+
+        // Wait for proofView response
+        let timeout = std::time::Instant::now();
+        let mut found_proof_view = false;
+
+        while timeout.elapsed() < Duration::from_secs(2) {
+            if let Some(msg) = self.proof_state.vscoq_lsp.recv(Duration::from_millis(100)) {
+                let method = msg.get("method").and_then(|m| m.as_str()).unwrap_or("");
+
+                if method == "vscoq/proofView" {
+                    if let Some(params) = msg.get("params") {
+                        println!("State after executing '{}':", line_text);
+                        println!("{}", format_goals(params, false));
+
+                        self.proof_state.last_goals_state = params.clone();
+
+                        // Process this proof state to MIDI
+                        process_tactic_to_midi(&self.proof_state.midi_output, &line_text, params,
+                            Some(Duration::from_millis(MIDI_TEST_NOTE_DURATION_DEFAULT)));
+
+                        found_proof_view = true;
                         break;
                     }
                 }
-                // Handle the adjusted request response
-                else if id.as_u64() == Some(request_id + INVIS_STEP_OFFSET) {
-                    if let Some(result) = message.get("result") {
-                        found_response = true;
-    
-                        println!("self.proof_state after executing '{}':", line_text);
-                        println!("{}", format_goals(result, false));
-                
-                        self.proof_state.last_goals_state = result.clone();
-                        process_tactic_to_midi(&self.proof_state.midi_output, &line_text, result, 
-                        Some(Duration::from_millis(MIDI_TEST_NOTE_DURATION_DEFAULT)));
-    
-                        break;
-                    } else if let Some(error) = message.get("error") {
-                        println!("Error: {}", error);
-                        found_response = true;
-                        break;
-                    }
-                }
+            } else if found_proof_view {
+                break;
             }
         }
-    
-        if !found_response {
-            println!("No response received for goals request");
+
+        if !found_proof_view {
+            println!("No proof view received for this step");
         }
-    
+
         println!("\n{}\n", "-".repeat(60));
-    
-        // Advance to next step only after successful execution
     }
     
     fn show_flicker_message(&mut self, text: String) {

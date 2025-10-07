@@ -4,7 +4,6 @@
 // midi off fade out- stop_all_notes
 
 use clap::Parser;
-use lsp_types::DocumentRangeFormattingParams;
 use serde_json::json;
 use std::{fs, thread};
 use std::io::{self, BufRead, Write};

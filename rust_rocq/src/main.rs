@@ -16,7 +16,7 @@ mod gui;
 mod formatting;
 
 use lsp::VscoqLSP;
-use midi::{MidiOutput, process_tactic_to_midi, process_tactic_to_midi_with_proof_state, autoplay_proof_sequence, ProofStateDiff};
+use midi::{MidiOutput, process_tactic_to_midi_with_proof_state, autoplay_proof_sequence, ProofStateDiff};
 use gui::run_with_gui;
 use formatting::format_goals;
 
@@ -366,8 +366,6 @@ fn handle_execute_step(
                         process_tactic_to_midi_with_proof_state(&state.midi_output, &tactic, params,
                             MIDI_TEST_NOTE_DURATION_DEFAULT,
                             proof_diff.clone());
-                        process_tactic_to_midi(&state.midi_output, &tactic, params,
-                            MIDI_TEST_NOTE_DURATION_DEFAULT);
                         thread::sleep(arpeggiation_sleep);
                     }
 

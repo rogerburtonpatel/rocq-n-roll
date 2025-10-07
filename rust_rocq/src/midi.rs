@@ -23,7 +23,7 @@ const DEFAULT_NOTE : Note = (55, 60);
 const MAX_PITCH : Pitch = 127;
 
 // Length notes held and unheld for --auto-play
-const AUTOPLAY_NOTE_LENGTH  : NoteDuration = 0;
+const AUTOPLAY_NOTE_LENGTH  : NoteDuration = 200;
 const AUTOPLAY_PAUSE_LENGTH : NoteDuration = 200;
 
 // When getting dissonant (bad proof state), how much to play and how long 
@@ -420,7 +420,7 @@ pub fn autoplay_proof_sequence(proof_steps: &[(usize, String)], midi_output: &Mi
         println!("[MIDI] Step {}: {} -> Note {} @ {}", i + 1, line_text, pitch, velocity);
         
         midi_output.play_note(pitch, velocity, 
-            Some(Duration::from_millis(200))
+            Some(Duration::from_millis(AUTOPLAY_NOTE_LENGTH))
         );
         
         thread::sleep(Duration::from_millis(AUTOPLAY_PAUSE_LENGTH));

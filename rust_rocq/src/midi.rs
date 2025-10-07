@@ -222,6 +222,12 @@ pub fn extract_tactic_name(line: &str) -> String {
 }
 
 #[derive(Clone, Debug)]
+pub struct Goal {
+    pub text: String,
+    pub hypotheses: Vec<String>,
+}
+
+#[derive(Clone, Debug)]
 pub struct ProofStateDiff {
     pub prev_goals: usize,
     pub prev_shelved: usize,
@@ -231,6 +237,8 @@ pub struct ProofStateDiff {
     pub curr_unfocused: usize,
     pub step_number: usize,
     pub total_steps: usize,
+    pub prev_goals_list: Vec<Goal>,
+    pub curr_goals_list: Vec<Goal>,
 }
 
 // Modify based on proof state complexity
@@ -312,8 +320,24 @@ pub fn process_tactic_to_midi_with_proof_state(
         println!("[PROOF STATE DIFF] Step {}/{}", diff.step_number, diff.total_steps);
         println!("  Previous: goals={}, shelved={}, unfocused={}",
                  diff.prev_goals, diff.prev_shelved, diff.prev_unfocused);
+
+        if !diff.prev_goals_list.is_empty() {
+            println!("    Previous goals:");
+            for (i, goal) in diff.prev_goals_list.iter().enumerate() {
+                println!("      {}: {}", i + 1, goal.text);
+            }
+        }
+
         println!("  Current:  goals={}, shelved={}, unfocused={}",
                  diff.curr_goals, diff.curr_shelved, diff.curr_unfocused);
+
+        if !diff.curr_goals_list.is_empty() {
+            println!("    Current goals:");
+            for (i, goal) in diff.curr_goals_list.iter().enumerate() {
+                println!("      {}: {}", i + 1, goal.text);
+            }
+        }
+
         println!("  Delta:    goals={:+}, shelved={:+}, unfocused={:+}",
                  goals_diff, shelved_diff, unfocused_diff);
     }

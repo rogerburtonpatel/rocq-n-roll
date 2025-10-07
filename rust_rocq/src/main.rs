@@ -17,7 +17,7 @@ mod gui;
 mod formatting;
 
 use lsp::VscoqLSP;
-use midi::{MidiOutput, process_tactic_to_midi_with_proof_state, autoplay_proof_sequence, ProofStateDiff};
+use midi::{MidiOutput, process_tactic_to_midi_with_proof_state, autoplay_proof_sequence, ProofStateDiff, Goal};
 use gui::run_with_gui;
 use formatting::format_goals;
 
@@ -44,20 +44,95 @@ const MIDI_TEST_NOTE_DURATION_DEFAULT: Option<Duration> = Some(Duration::from_mi
 // used for interpretToPoint. 
 const MAX_LINE_LENGTH: usize = 9999;
 
+/// Extract text from a Ppcmd structure recursively
+/// Use newline as separator for Ppcmd_force_newline
+fn extract_ppcmd_text(value: &serde_json::Value) -> String {
+    match value {
+        serde_json::Value::String(s) => s.clone(),
+        serde_json::Value::Array(arr) => {
+            if arr.is_empty() {
+                return String::new();
+            }
+
+            // Check if this is a Ppcmd command
+            if let Some(cmd) = arr[0].as_str() {
+                match cmd {
+                    "Ppcmd_string" => {
+                        if arr.len() > 1 {
+                            arr[1].as_str().unwrap_or("").to_string()
+                        } else {
+                            String::new()
+                        }
+                    }
+                    "Ppcmd_force_newline" => {
+                        "\n".to_string()
+                    }
+                    "Ppcmd_print_break" => {
+                        " ".to_string()
+                    }
+                    "Ppcmd_glue" => {
+                        if arr.len() > 1 {
+                            if let Some(inner_arr) = arr[1].as_array() {
+                                inner_arr.iter()
+                                    .map(|v| extract_ppcmd_text(v))
+                                    .collect::<Vec<_>>()
+                                    .join("")
+                            } else {
+                                String::new()
+                            }
+                        } else {
+                            String::new()
+                        }
+                    }
+                    "Ppcmd_tag" => {
+                        // Tag has format: ["Ppcmd_tag", "tag_name", content]
+                        if arr.len() > 2 {
+                            extract_ppcmd_text(&arr[2])
+                        } else {
+                            String::new()
+                        }
+                    }
+                    "Ppcmd_box" => {
+                        // Box has format: ["Ppcmd_box", box_type, content]
+                        if arr.len() > 2 {
+                            extract_ppcmd_text(&arr[2])
+                        } else {
+                            String::new()
+                        }
+                    }
+                    _ => {
+                        // For other commands, try to extract from remaining elements
+                        arr.iter().skip(1)
+                            .map(|v| extract_ppcmd_text(v))
+                            .collect::<Vec<_>>()
+                            .join("")
+                    }
+                }
+            } else {
+                // Array without command string, process all elements
+                arr.iter()
+                    .map(|v| extract_ppcmd_text(v))
+                    .collect::<Vec<_>>()
+                    .join("")
+            }
+        }
+        _ => String::new(),
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct ProofStateSnapshot {
     pub goals_count: usize,
     pub shelved_count: usize,
     pub unfocused_count: usize,
+    pub goals: Vec<Goal>,
 }
 
 impl ProofStateSnapshot {
     fn from_proof_view(proof_view: &serde_json::Value) -> Self {
         if let Some(proof) = proof_view.get("proof") {
-            let goals_count = proof.get("goals")
-                .and_then(|g| g.as_array())
-                .map(|a| a.len())
-                .unwrap_or(0);
+            let goals_array = proof.get("goals").and_then(|g| g.as_array());
+            let goals_count = goals_array.as_ref().map(|a| a.len()).unwrap_or(0);
             let shelved_count = proof.get("shelvedGoals")
                 .and_then(|g| g.as_array())
                 .map(|a| a.len())
@@ -67,16 +142,58 @@ impl ProofStateSnapshot {
                 .map(|a| a.len())
                 .unwrap_or(0);
 
+            // Parse and store goals
+            let goals = if let Some(goals_arr) = goals_array {
+                let parsed_goals: Vec<Goal> = goals_arr.iter().filter_map(|goal_obj| {
+                    let goal_ppcmd = goal_obj.get("goal")?;
+                    let goal_text = extract_ppcmd_text(goal_ppcmd);
+
+                    let hypotheses = goal_obj.get("hypotheses")
+                        .and_then(|h| h.as_array())
+                        .map(|hyps_arr| {
+                            hyps_arr.iter()
+                                .map(|hyp| extract_ppcmd_text(hyp))
+                                .collect()
+                        })
+                        .unwrap_or_default();
+
+                    Some(Goal {
+                        text: goal_text,
+                        hypotheses,
+                    })
+                }).collect();
+
+                // Print goals
+                if !parsed_goals.is_empty() {
+                    println!("[SNAPSHOT] Goals:");
+                    for (i, goal) in parsed_goals.iter().enumerate() {
+                        println!("  Goal {}: {}", i + 1, goal.text);
+                        if !goal.hypotheses.is_empty() {
+                            println!("    Hypotheses ({}):", goal.hypotheses.len());
+                            for hyp in &goal.hypotheses {
+                                println!("      {}", hyp);
+                            }
+                        }
+                    }
+                }
+
+                parsed_goals
+            } else {
+                Vec::new()
+            };
+
             ProofStateSnapshot {
                 goals_count,
                 shelved_count,
                 unfocused_count,
+                goals,
             }
         } else {
             ProofStateSnapshot {
                 goals_count: 0,
                 shelved_count: 0,
                 unfocused_count: 0,
+                goals: Vec::new(),
             }
         }
     }
@@ -196,6 +313,8 @@ fn handle_replay(state: &mut ProofStepperState) -> bool {
                     curr_unfocused: curr.unfocused_count,
                     step_number: state.current_step + 1,
                     total_steps: state.total_steps,
+                    prev_goals_list: prev.goals.clone(),
+                    curr_goals_list: curr.goals.clone(),
                 })
             } else {
                 None
@@ -305,6 +424,22 @@ pub fn req_lsp_and_play_midi(
                     state.previous_proof_state = state.current_proof_state.clone();
                     state.current_proof_state = Some(ProofStateSnapshot::from_proof_view(params));
 
+                    // Print stored goals from snapshot
+                    if let Some(snapshot) = &state.current_proof_state {
+                        if !snapshot.goals.is_empty() {
+                            println!("[STORED] Snapshot contains {} goal(s):", snapshot.goals.len());
+                            for (i, goal) in snapshot.goals.iter().enumerate() {
+                                println!("  Stored Goal {}: {}", i + 1, goal.text);
+                                if !goal.hypotheses.is_empty() {
+                                    println!("    Stored Hypotheses: {}", goal.hypotheses.len());
+                                    for hyp in &goal.hypotheses {
+                                        println!("      {}", hyp);
+                                    }
+                                }
+                            }
+                        }
+                    }
+
                     // Parse semicolons first
                     let tactics = parse_semicolon_tactics(&line_text);
                     println!("[PARSE] Line '{}' split by semicolon -> {} tactic(s): {:?}",
@@ -349,6 +484,8 @@ pub fn req_lsp_and_play_midi(
                             curr_unfocused: curr.unfocused_count,
                             step_number: state.current_step + 1,
                             total_steps: state.total_steps,
+                            prev_goals_list: prev.goals.clone(),
+                            curr_goals_list: curr.goals.clone(),
                         })
                     } else {
                         None
@@ -397,71 +534,6 @@ pub fn parse_semicolon_tactics(tactic: &str) -> Vec<String> {
         .filter(|s| !s.is_empty())
         .map(|s| s.to_string())
         .collect()
-}
-
-/// Extract text from a Ppcmd structure recursively
-/// Use newline as separator for Ppcmd_force_newline
-fn extract_ppcmd_text(value: &serde_json::Value) -> String {
-    match value {
-        serde_json::Value::String(s) => s.clone(),
-        serde_json::Value::Array(arr) => {
-            if arr.is_empty() {
-                return String::new();
-            }
-
-            // Check if this is a Ppcmd command
-            if let Some(cmd) = arr[0].as_str() {
-                match cmd {
-                    "Ppcmd_string" => {
-                        if arr.len() > 1 {
-                            arr[1].as_str().unwrap_or("").to_string()
-                        } else {
-                            String::new()
-                        }
-                    }
-                    "Ppcmd_force_newline" => {
-                        "\n".to_string()
-                    }
-                    "Ppcmd_glue" => {
-                        if arr.len() > 1 {
-                            if let Some(inner_arr) = arr[1].as_array() {
-                                inner_arr.iter()
-                                    .map(|v| extract_ppcmd_text(v))
-                                    .collect::<Vec<_>>()
-                                    .join("")
-                            } else {
-                                String::new()
-                            }
-                        } else {
-                            String::new()
-                        }
-                    }
-                    "Ppcmd_tag" => {
-                        // Tag has format: ["Ppcmd_tag", "tag_name", content]
-                        if arr.len() > 2 {
-                            extract_ppcmd_text(&arr[2])
-                        } else {
-                            String::new()
-                        }
-                    }
-                    _ => {
-                        // For other commands, try to extract from remaining elements
-                        arr.iter().skip(1)
-                            .map(|v| extract_ppcmd_text(v))
-                            .collect::<Vec<_>>()
-                            .join("")
-                    }
-                }
-            } else {
-                // Array without command string, process all elements
-                arr.iter()
-                    .map(|v| extract_ppcmd_text(v))
-                    .collect::<Vec<_>>()
-                    .join("")
-            }
-        }
-        _ => String::new(),
-    }
 }
 
 /// Parse info messages (like "info auto") from proof view messages

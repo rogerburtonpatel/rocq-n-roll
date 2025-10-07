@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::thread;
 use std::time::Duration;
+use rand::Rng;
 use serde_json::Value;
 
 extern crate portmidi as pm;
@@ -438,10 +439,20 @@ pub fn autoplay_proof_sequence(proof_steps: &[(usize, String)], midi_output: &Mi
     
     for (i, (_, line_text)) in proof_steps.iter().enumerate() {
         let tactic_name = extract_tactic_name(line_text);
-        let (pitch, velocity) = tactic_map.get(tactic_name.as_str())
+        let (mut pitch, mut velocity) = tactic_map.get(tactic_name.as_str())
             .copied()
             .unwrap_or(DEFAULT_NOTE);
+
+        // RANDOMIZATION: REMOVE
+        let mut rng = rand::thread_rng();
+        let offset: i8 = rng.gen_range(-5..=5); // Small random value between -5 and 5
+        let offset2: i8 = rng.gen_range(-5..=5); // Small random value between -5 and 5
+    
+        pitch = pitch.saturating_add_signed(offset);
+        velocity = velocity.saturating_add_signed(offset2);
         
+        // END RANDOMIZATION 
+
         println!("[MIDI] Step {}: {} -> Note {} @ {}", i + 1, line_text, pitch, velocity);
         
         midi_output.play_note(pitch, velocity, 

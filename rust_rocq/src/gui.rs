@@ -1,10 +1,9 @@
 use eframe::egui;
 use egui::{Color32, FontId, Pos2, Rect, Stroke, Vec2};
 use rand::Rng;
-use serde_json::json;
-use std::{thread, time::{Duration, Instant}};
+use std::time::{Duration, Instant};
 
-use crate::{formatting::format_goals, midi::{process_tactic_to_midi_with_proof_state, ProofStateDiff}, parse_info_message, parse_semicolon_tactics, req_lsp_and_play_midi, ProofStateSnapshot, ProofStepperState, ARPEGGIATION_SLEEP_TIME, JSON_VERSION, MIDI_TEST_NOTE_DURATION_DEFAULT};
+use crate::{req_lsp_and_play_midi, ProofStepperState};
 
 // Adjust 
 const PROOF_FONT_SIZE    : f32 = 12.0;
@@ -95,7 +94,6 @@ pub struct RocqVisualizer {
     proof_state: ProofStepperState,
 
     // Proof text management
-    current_line_index: usize, // TODO replace all instances with proof_state.curr_line
     visible_lines: usize,
     
     // Visual effects
@@ -104,20 +102,17 @@ pub struct RocqVisualizer {
     
     // Input handling
     last_frame_keys: std::collections::HashSet<egui::Key>,
-    debug: bool,
 }
 
 
 impl RocqVisualizer {
-    pub fn new(proof_state: ProofStepperState, _cc: &eframe::CreationContext<'_>, debug: bool) -> Self {
+    pub fn new(proof_state: ProofStepperState, _cc: &eframe::CreationContext<'_>) -> Self {
         Self {
-            current_line_index: 0,
             visible_lines: VISIBLE_PROOF_LINES,
             tree_patterns: Vec::new(),
             flicker_message: None,
             last_frame_keys: std::collections::HashSet::new(),
             proof_state: proof_state,
-            debug: debug,
         }
     }
 
@@ -134,7 +129,7 @@ impl RocqVisualizer {
 
                             self.spawn_tree_pattern(ctx);
 
-                            req_lsp_and_play_midi(&mut self.proof_state, self.debug);
+                            req_lsp_and_play_midi(&mut self.proof_state);
                             
                             self.proof_state.advance_step();
                         }
@@ -415,7 +410,7 @@ impl eframe::App for RocqVisualizer {
     }
 }
 
-pub fn run_with_gui(proof_state: ProofStepperState, debug: bool) -> Result<(), eframe::Error> {
+pub fn run_with_gui(proof_state: ProofStepperState) -> Result<(), eframe::Error> {
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
             .with_inner_size([1200.0, 800.0])
@@ -429,6 +424,6 @@ pub fn run_with_gui(proof_state: ProofStepperState, debug: bool) -> Result<(), e
     eframe::run_native(
         "Rocq Proof Visualizer",
         options,
-        Box::new(move |cc| Box::new(RocqVisualizer::new(proof_state, cc, debug))),
+        Box::new(|cc| Box::new(RocqVisualizer::new(proof_state, cc))),
     )
 }

@@ -1,10 +1,13 @@
 use serde_json::Value;
 
+use crate::debug_enabled;
+
 // Function to display goals in a readable format based on the documentation
-pub fn format_goals(result: &Value, debug: bool) -> String {
+pub fn format_goals(result: &Value) -> String {
     let mut output = String::new();
     
-    if debug {
+    
+    if debug_enabled() {
         output.push_str("Raw Response:\n");
         output.push_str(&serde_json::to_string_pretty(result).unwrap_or_default());
         output.push('\n');

@@ -4,8 +4,9 @@
 // midi off fade out- stop_all_notes
 
 use clap::Parser;
+use log::{debug, info};
 use serde_json::json;
-use std::{fs, thread};
+use std::{env, fs, thread};
 use std::io::{self, BufRead, Write};
 use std::path::PathBuf;
 use std::time::Duration;
@@ -229,14 +230,13 @@ fn handle_midi_test(midi_output: &mut MidiOutput) -> bool {
 
 fn handle_execute_step(
     state: &mut ProofStepperState,
-    debug: bool,
 ) -> Result<bool, Box<dyn std::error::Error>> {
         if state.is_complete() {
         println!("Proof already complete!");
         return Ok(false);
     }
 
-    req_lsp_and_play_midi(state, debug);
+    req_lsp_and_play_midi(state);
     state.advance_step();
 
     Ok(false)
@@ -244,11 +244,10 @@ fn handle_execute_step(
 
 pub fn req_lsp_and_play_midi(
     state: &mut ProofStepperState,
-    debug: bool,
 ) {
 
     let (line_num, line_text) = state.get_current_tactic().map(|(n, t)| (*n, t.clone())).unwrap_or((0, String::new()));
-    println!("\nExecuting step {}/{}...", state.current_step + 1, state.total_steps);
+    debug!("\nExecuting step {}/{}...", state.current_step + 1, state.total_steps);
 
     // Send vscoq/interpretToPoint request
     let interpret_msg = json!({
@@ -266,9 +265,7 @@ pub fn req_lsp_and_play_midi(
         }
     });
 
-    if debug {
-        println!("Sending interpretToPoint: {}", interpret_msg);
-    }
+        debug!("Sending interpretToPoint: {}", interpret_msg);
  // Send vscoq/interpretToPoint request
         if let Err(e) = state.send_message(&json!({
             "jsonrpc": "2.0",
@@ -294,9 +291,8 @@ pub fn req_lsp_and_play_midi(
 
     while timeout.elapsed() < Duration::from_secs(2) {
         if let Some(msg) = state.vscoq_lsp.recv(Duration::from_millis(100)) {
-            if debug {
-                println!("Received message: {:#?}", msg);
-            }
+
+            debug!("Received message: {:#?}", msg);
 
             let method = msg.get("method").and_then(|m| m.as_str()).unwrap_or("");
 
@@ -304,7 +300,7 @@ pub fn req_lsp_and_play_midi(
                 println!("{}", msg);
                 if let Some(params) = msg.get("params") {
                     println!("State after executing '{}':", line_text);
-                    println!("{}", format_goals(params, debug));
+                    println!("{}", format_goals(params));
 
                     // Parse and display goal counts
                     if let Some(proof) = params.get("proof") {
@@ -598,8 +594,20 @@ pub fn extract_proof_steps(coq_content: &str) -> Vec<(usize, String)> {
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    env_logger::init();
+    
+    // debug mode 
     let args = Args::parse();
+    let debug_mode = args.debug;
+    if debug_mode {
+        unsafe { env::set_var("RUST_LOG", "debug") };
+    } else {
+        unsafe { env::set_var("RUST_LOG", "info") };
+    }
+
+    env_logger::init();
+
+    info!("This shows always");
+    debug!("Only shows in debug mode");
     
     // Validate file extension
     if let Some(ext) = args.file.extension() {
@@ -667,7 +675,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         // ProofStepperState may be a substruct of RocqVisualizer.
         // down arrow -> call lsp, get result. play sound based on result. do viz based on result. 
         // honestly, we want to go up and down. TODO: go back. 
-        run_with_gui(state, args.debug)?;
+        run_with_gui(state)?;
         return Ok(());
     }
 
@@ -708,7 +716,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             "reset"               => handle_reset(&mut state),
             "s" | "skip"          => handle_skip(&mut state),
             "m" | "midi"          => handle_midi_test(&mut state.midi_output),
-            ""                    => handle_execute_step(&mut state, args.debug)?,
+            ""                    => handle_execute_step(&mut state)?,
             _ => {
                 println!("Unknown command: '{}'. Type 'h' for help.", input);
                 false
@@ -731,4 +739,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     state.midi_output.stop_all_notes(None);
 
     Ok(())
+}
+
+pub fn debug_enabled() -> bool {
+    env::vars().any(|(key, val)| {
+        key.to_lowercase().contains("debug") || val.to_lowercase().contains("debug")
+    })
 }

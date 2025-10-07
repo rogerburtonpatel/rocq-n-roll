@@ -209,7 +209,7 @@ impl RocqVisualizer {
 
                         // Process this proof state to MIDI
                         process_tactic_to_midi(&self.proof_state.midi_output, &line_text, params,
-                            Some(Duration::from_millis(MIDI_TEST_NOTE_DURATION_DEFAULT)));
+                            MIDI_TEST_NOTE_DURATION_DEFAULT);
 
                         found_proof_view = true;
                         break;

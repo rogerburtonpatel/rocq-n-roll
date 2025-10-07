@@ -194,7 +194,7 @@ fn handle_replay(state: &mut ProofStepperState) -> bool {
             };
 
             process_tactic_to_midi_with_proof_state(&state.midi_output, current_line_text, &last_goals_state,
-                Some(Duration::from_millis(MIDI_TEST_NOTE_DURATION_DEFAULT)),
+                MIDI_TEST_NOTE_DURATION_DEFAULT,
                 proof_diff);
         }
     } else {
@@ -219,7 +219,7 @@ fn handle_skip(state: &mut ProofStepperState) -> bool {
 
 fn handle_midi_test(midi_output: &mut MidiOutput) -> bool {
     println!("\nTesting MIDI Out: Emitting NOTE ON...");
-    midi_output.play_note(90, 100, Some(Duration::from_millis(MIDI_TEST_NOTE_DURATION_DEFAULT)));
+    midi_output.play_note(90, 100, MIDI_TEST_NOTE_DURATION_DEFAULT);
     println!("");
     false
 }
@@ -356,10 +356,10 @@ fn handle_execute_step(
                     for tactic in tactics_to_send {
                         println!("[MIDI] Sending to MIDI: '{}'", tactic);
                         process_tactic_to_midi_with_proof_state(&state.midi_output, &tactic, params,
-                            Some(Duration::from_millis(MIDI_TEST_NOTE_DURATION_DEFAULT)),
+                            MIDI_TEST_NOTE_DURATION_DEFAULT,
                             proof_diff.clone());
                         process_tactic_to_midi(&state.midi_output, &tactic, params,
-                            Some(Duration::from_millis(MIDI_TEST_NOTE_DURATION_DEFAULT)));
+                            MIDI_TEST_NOTE_DURATION_DEFAULT);
                             thread::sleep(arpeggiation_sleep);
                     }
 

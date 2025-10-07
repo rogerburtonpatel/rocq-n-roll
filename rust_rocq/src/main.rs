@@ -38,7 +38,7 @@ struct Args {
 }
 
 const JSON_VERSION: u64 = 1;
-const MIDI_TEST_NOTE_DURATION_DEFAULT: u64 = 1100;
+const MIDI_TEST_NOTE_DURATION_DEFAULT: Option<Duration> = Some(Duration::from_millis(1100));
 
 #[derive(Clone, Debug)]
 pub struct ProofStateSnapshot {
@@ -198,7 +198,7 @@ fn handle_replay(state: &mut ProofStepperState) -> bool {
             };
 
             process_tactic_to_midi_with_proof_state(&state.midi_output, current_line_text, &last_goals_state,
-                Some(Duration::from_millis(MIDI_TEST_NOTE_DURATION_DEFAULT)),
+                MIDI_TEST_NOTE_DURATION_DEFAULT,
                 proof_diff);
         }
     } else {
@@ -365,10 +365,10 @@ fn handle_execute_step(
                     for tactic in tactics_to_send {
                         println!("[MIDI] Sending to MIDI: '{}'", tactic);
                         process_tactic_to_midi_with_proof_state(&state.midi_output, &tactic, params,
-                            Some(Duration::from_millis(MIDI_TEST_NOTE_DURATION_DEFAULT)),
+                            MIDI_TEST_NOTE_DURATION_DEFAULT,
                             proof_diff.clone());
                         process_tactic_to_midi(&state.midi_output, &tactic, params,
-                            Some(Duration::from_millis(MIDI_TEST_NOTE_DURATION_DEFAULT)));
+                            MIDI_TEST_NOTE_DURATION_DEFAULT);
                         thread::sleep(arpeggiation_sleep);
                     }
 

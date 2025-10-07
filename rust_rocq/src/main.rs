@@ -268,7 +268,6 @@ pub fn req_lsp_and_play_midi(
 
         debug!("Sending interpretToPoint: {}", interpret_msg);
  // Send vscoq/interpretToPoint request
-        todo!("Fix character 999");
         if let Err(e) = state.vscoq_lsp.interpret_to_point(
                 state.document_uri.clone(), 
                 JSON_VERSION, 

@@ -15,7 +15,7 @@ mod midi;
 mod formatting;
 mod lsp;
 
-use midi::{MidiOutput, process_tactic_to_midi, process_tactic_to_midi_with_proof_state, play_proof_sequence, ProofStateDiff};
+use midi::{MidiOutput, process_tactic_to_midi, process_tactic_to_midi_with_proof_state, autoplay_proof_sequence, ProofStateDiff};
 use formatting::format_goals;
 use lsp::VscoqLSP;
 
@@ -625,7 +625,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Auto-play mode
     if args.auto_play {
-        play_proof_sequence(&proof_lines, &midi_output);
+        autoplay_proof_sequence(&proof_lines, &midi_output);
         return Ok(());
     }
 

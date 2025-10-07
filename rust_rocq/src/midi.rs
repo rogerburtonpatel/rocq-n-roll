@@ -2,7 +2,6 @@ use std::collections::HashMap;
 use std::thread;
 use std::time::Duration;
 use serde_json::Value;
-use regex::Regex;
 
 extern crate portmidi as pm;
 use pm::MidiMessage;
@@ -24,7 +23,7 @@ const DEFAULT_NOTE : Note = (55, 60);
 const MAX_PITCH : Pitch = 127;
 
 // Length notes held and unheld for --auto-play
-const AUTOPLAY_NOTE_LENGTH  : NoteDuration = 200;
+const AUTOPLAY_NOTE_LENGTH  : NoteDuration = 0;
 const AUTOPLAY_PAUSE_LENGTH : NoteDuration = 200;
 
 // When getting dissonant (bad proof state), how much to play and how long 
@@ -48,7 +47,7 @@ impl MidiOutput {
                 for dev in context.devices()? {
                     println!("{}", dev);
                 }
-                return Ok(MidiOutput { context: None, port_id: None, enabled: false });
+                return Err("User requested available MIDI devices; exiting.".into());
             }
             
             // Validate device exists
@@ -80,21 +79,17 @@ impl MidiOutput {
                     eprintln!("MIDI error: {}", e);
                     return;
                 }
-                
-                // Hold for specified duration or until manually stopped
                 if let Some(duration) = hold_duration {
-                    // TODO Midi as seperate thread for good holding
-                    // thread::sleep(duration);
-                    println!("stop");
-                    // let note_off = MidiMessage {
-                    //             status: NOTE_OFF_STATUS + CHANNEL,
-                    //             data1: pitch,
-                    //             data2: 0,
-                    //             data3: 0,
-                    //         };
-                    // if let Err(e) = port.write_message(note_off) {
-                    //     eprintln!("MIDI error: {}", e);
-                    // }
+                    thread::sleep(duration);
+                     let note_off = MidiMessage {
+                        status: NOTE_OFF_STATUS + CHANNEL,
+                        data1: pitch,
+                        data2: 0,
+                        data3: 0,
+                    };
+                    if let Err(e) = port.write_message(note_off) {
+                        eprintln!("MIDI error: {}", e);
+                    }
                 }
             }
         }
@@ -212,24 +207,8 @@ pub struct ProofStateDiff {
     pub total_steps: usize,
 }
 
-// Real MIDI processing function
-pub fn process_tactic_to_midi(
-    midi_output: &MidiOutput,
-    line_text: &str,
-    goals_json: &serde_json::Value,
-    hold_duration: Option<Duration>
-) {
-    let tactic_map = create_tactic_midi_map();
-    let tactic_name = extract_tactic_name(line_text);
-
-    println!("\n[MIDI] Processing tactic: '{}' -> '{}'", line_text, tactic_name);
-    
-    // Get base note for the tactic
-    let (mut pitch, mut velocity) = tactic_map.get(tactic_name.as_str())
-        .copied()
-        .unwrap_or(DEFAULT_NOTE); // Default: G3, medium velocity
-    
-    // Modify based on proof state complexity
+// Modify based on proof state complexity
+fn adjust_note_using_context (mut pitch : u8, mut velocity : u8, goals_json : &serde_json::Value) -> (u8, u8) {    
     if let Some(goals_config) = goals_json.get("goals") {
         if let Some(goals) = goals_config.get("goals") {
             if let Some(goals_array) = goals.as_array() {
@@ -256,7 +235,27 @@ pub fn process_tactic_to_midi(
             }
         }
     }
+    (pitch, velocity)
+}
+
+// Real MIDI processing function
+pub fn process_tactic_to_midi(
+    midi_output: &MidiOutput,
+    line_text: &str,
+    goals_json: &serde_json::Value,
+    hold_duration: Option<Duration>
+) {
+    let tactic_map = create_tactic_midi_map();
+    let tactic_name = extract_tactic_name(line_text);
+
+    println!("\n[MIDI] Processing tactic: '{}' -> '{}'", line_text, tactic_name);
     
+    // Get base note for the tactic
+    let (mut pitch, mut velocity) = tactic_map.get(tactic_name.as_str())
+        .copied()
+        .unwrap_or(DEFAULT_NOTE); // Default: G3, medium velocity
+    
+    (pitch, velocity) = adjust_note_using_context(pitch, velocity, goals_json);
     // Play the note
     midi_output.play_note(pitch, velocity, hold_duration);
 
@@ -407,7 +406,7 @@ fn play_dissonant_cluster(midi_output: &MidiOutput, base_pitch: u8) {
 }
 
 // Play entire proof sequence with delays
-pub fn play_proof_sequence(proof_steps: &[(usize, String)], midi_output: &MidiOutput) {
+pub fn autoplay_proof_sequence(proof_steps: &[(usize, String)], midi_output: &MidiOutput) {
     println!("\n[MIDI] Playing entire proof sequence with delays...");
     
     let tactic_map = create_tactic_midi_map();
@@ -420,10 +419,14 @@ pub fn play_proof_sequence(proof_steps: &[(usize, String)], midi_output: &MidiOu
         
         println!("[MIDI] Step {}: {} -> Note {} @ {}", i + 1, line_text, pitch, velocity);
         
-        midi_output.play_note(pitch, velocity, Some(Duration::from_millis(AUTOPLAY_NOTE_LENGTH)));
+        midi_output.play_note(pitch, velocity, 
+            Some(Duration::from_millis(200))
+        );
+        
         thread::sleep(Duration::from_millis(AUTOPLAY_PAUSE_LENGTH));
-        midi_output.stop_all_notes(None);
+
     }
+    midi_output.stop_all_notes(None);
     
     println!("[MIDI] Proof sequence complete!");
 }

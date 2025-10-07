@@ -3,6 +3,7 @@
 // gui trees build incrementally 
 
 use clap::Parser;
+use lsp_types::DocumentRangeFormattingParams;
 use serde_json::json;
 use std::{fs, thread};
 use std::io::{self, BufRead, Write};
@@ -15,7 +16,7 @@ mod gui;
 mod formatting;
 
 use lsp::VscoqLSP;
-use midi::{MidiOutput, process_tactic_to_midi, process_tactic_to_midi_with_proof_state, play_proof_sequence, ProofStateDiff};
+use midi::{MidiOutput, process_tactic_to_midi, process_tactic_to_midi_with_proof_state, autoplay_proof_sequence, ProofStateDiff};
 use gui::run_with_gui;
 use formatting::format_goals;
 
@@ -221,7 +222,7 @@ fn handle_skip(state: &mut ProofStepperState) -> bool {
 
 fn handle_midi_test(midi_output: &mut MidiOutput) -> bool {
     println!("\nTesting MIDI Out: Emitting NOTE ON...");
-    midi_output.play_note(90, 100, Some(Duration::from_millis(MIDI_TEST_NOTE_DURATION_DEFAULT)));
+    midi_output.play_note(90, 100, MIDI_TEST_NOTE_DURATION_DEFAULT);
     println!("");
     false 
 }
@@ -634,7 +635,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Auto-play mode
     if args.auto_play {
-        play_proof_sequence(&proof_lines, &midi_output);
+        autoplay_proof_sequence(&proof_lines, &midi_output);
         return Ok(());
     }
 
@@ -680,13 +681,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         let should_exit = match input {
             "q" | "quit" | "exit" => handle_quit(),
-            "h" | "help" => handle_help(),
-            "e" | "explain" => handle_explain(&mut state),
-            "replay" => handle_replay(&mut state),
-            "reset" => handle_reset(&mut state),
-            "s" | "skip" => handle_skip(&mut state),
-            "m" | "midi" => handle_midi_test(&mut state.midi_output),
-            "" => handle_execute_step(&mut state, args.debug)?,
+            "h" | "help"          => handle_help(),
+            "e" | "explain"       => handle_explain(&mut state),
+            "replay"              => handle_replay(&mut state),
+            "reset"               => handle_reset(&mut state),
+            "s" | "skip"          => handle_skip(&mut state),
+            "m" | "midi"          => handle_midi_test(&mut state.midi_output),
+            ""                    => handle_execute_step(&mut state, args.debug)?,
             _ => {
                 println!("Unknown command: '{}'. Type 'h' for help.", input);
                 false

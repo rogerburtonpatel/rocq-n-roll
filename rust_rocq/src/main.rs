@@ -21,6 +21,8 @@ use midi::{MidiOutput, process_tactic_to_midi_with_proof_state, autoplay_proof_s
 use gui::run_with_gui;
 use formatting::format_goals;
 
+use crate::midi::MidiError;
+
 #[derive(Parser)]
 #[command(name = "rust_rocq")]
 #[command(about = "Interactive Coq proof stepper with MIDI integration")]
@@ -249,7 +251,6 @@ pub fn req_lsp_and_play_midi(
     let (line_num, line_text) = state.get_current_tactic().map(|(n, t)| (*n, t.clone())).unwrap_or((0, String::new()));
     debug!("\nExecuting step {}/{}...", state.current_step + 1, state.total_steps);
 
-    // Send vscoq/interpretToPoint request
     let interpret_msg = json!({
         "jsonrpc": "2.0",
         "method": "vscoq/interpretToPoint",
@@ -267,20 +268,12 @@ pub fn req_lsp_and_play_midi(
 
         debug!("Sending interpretToPoint: {}", interpret_msg);
  // Send vscoq/interpretToPoint request
-        if let Err(e) = state.send_message(&json!({
-            "jsonrpc": "2.0",
-            "method": "vscoq/interpretToPoint",
-            "params": {
-                "textDocument": {
-                    "uri": state.document_uri.clone(),
-                    "version": JSON_VERSION
-                },
-                "position": {
-                    "line": line_num,
-                    "character": 999
-                }
-            }
-        })) {
+        todo!("Fix character 999");
+        if let Err(e) = state.vscoq_lsp.interpret_to_point(
+                state.document_uri.clone(), 
+                JSON_VERSION, 
+                line_num, 
+                999) {
             eprintln!("Error sending interpretToPoint: {e}");
             return;
         }
@@ -606,9 +599,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     env_logger::init();
 
-    info!("This shows always");
-    debug!("Only shows in debug mode");
-    
     // Validate file extension
     if let Some(ext) = args.file.extension() {
         if ext != "v" {
@@ -622,8 +612,22 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let coq_file = fs::read_to_string(&args.file)
         .map_err(|e| format!("Failed to read file '{}': {}", args.file.display(), e))?;
 
-    // Initialize MIDI output
-    let midi_output = MidiOutput::new(args.midi_device)?;
+    // Initialize MIDI output with some nice error handling! 
+    let midi_output = match MidiOutput::new(args.midi_device) {
+        Ok(output) => output,
+        Err(e) => {
+            if let Some(midi_err) = e.downcast_ref::<MidiError>() {
+                match midi_err {
+                    MidiError::UserRequestedDeviceList => {
+                        std::process::exit(0);
+                    }
+                    _ => return Err(e)
+                }
+            } else {
+               return Err(e)
+            }
+        }
+    };
 
     // Start and initialize vscoqtop LSP
     let mut vscoq_lsp = VscoqLSP::start()?;
@@ -671,9 +675,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut state = ProofStepperState::new(proof_lines, document_uri.clone(), midi_output, vscoq_lsp);
 
     if args.gui {
-        // todo: gui steps interactively with a ProofStepperState.
-        // ProofStepperState may be a substruct of RocqVisualizer.
-        // down arrow -> call lsp, get result. play sound based on result. do viz based on result. 
         // honestly, we want to go up and down. TODO: go back. 
         run_with_gui(state)?;
         return Ok(());

@@ -1,3 +1,4 @@
+use log::debug;
 use serde_json::json;
 use std::io::{BufRead, BufReader, Read, Write};
 use std::process::{ChildStdin, Command, Stdio};
@@ -157,6 +158,7 @@ impl VscoqLSP {
     }
 
     /// Get a reference to the receiver for advanced usage
+    #[allow(dead_code)]
     pub fn get_receiver(&self) -> &Receiver<serde_json::Value> {
         &self.rx
     }
@@ -196,24 +198,27 @@ impl VscoqLSP {
     /// Send vscoq/interpretToPoint request
     pub fn interpret_to_point(
         &mut self,
-        uri: &str,
+        uri: String,
         version: u64,
         line: usize,
         character: usize,
     ) -> std::io::Result<()> {
-        self.send_message(&json!({
-            "jsonrpc": "2.0",
-            "method": "vscoq/interpretToPoint",
-            "params": {
-                "textDocument": {
-                    "uri": uri,
-                    "version": version
-                },
-                "position": {
-                    "line": line,
-                    "character": character
-                }
+         let interpret_msg = json!({
+        "jsonrpc": "2.0",
+        "method": "vscoq/interpretToPoint",
+        "params": {
+            "textDocument": {
+                "uri": uri,
+                "version": version
+            },
+            "position": {
+                "line": line,
+                "character": character
             }
-        }))
+        }
+    });
+
+        debug!("Sending interpretToPoint: {}", interpret_msg);
+        self.send_message(&interpret_msg)
     }
 }

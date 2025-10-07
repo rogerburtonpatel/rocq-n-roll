@@ -37,6 +37,25 @@ pub struct MidiOutput {
     enabled: bool,
 }
 
+#[derive(Debug)]
+pub enum MidiError {
+    UserRequestedDeviceList,
+    MidiDisabled,
+    Other(Box<dyn std::error::Error>),
+}
+
+impl std::fmt::Display for MidiError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            MidiError::UserRequestedDeviceList => write!(f, "User requested available MIDI devices; exiting."),
+            MidiError::Other(e) => write!(f, "{}", e),
+            MidiError::MidiDisabled => write!(f, "MIDI disabled. Use --midi-device <device num> to enable."),
+        }
+    }
+}
+
+impl std::error::Error for MidiError {}
+
 impl MidiOutput {
     pub fn new(device_id: Option<i32>) -> Result<Self, Box<dyn std::error::Error>> {
         let context = pm::PortMidi::new()?;
@@ -47,15 +66,21 @@ impl MidiOutput {
                 for dev in context.devices()? {
                     println!("{}", dev);
                 }
-                return Err("User requested available MIDI devices; exiting.".into());
+                return Err(Box::new(MidiError::UserRequestedDeviceList));
             }
             
             // Validate device exists
             let _device = context.device(id)?;
             Ok(MidiOutput { context: Some(context), port_id: Some(id), enabled: true })
         } else {
-            println!("MIDI disabled. Use --midi-device to enable.");
-            Ok(MidiOutput { context: None, port_id: None, enabled: false })
+            eprintln!("MIDI disabled. Use --midi-device to enable.");
+            if let Ok(devices) = context.devices() {
+                eprintln!("Available MIDI devices:");
+                    for dev in devices {
+                        println!("{}", dev);
+                    }
+            }
+            return Err(Box::new(MidiError::MidiDisabled));
         }
     }
     

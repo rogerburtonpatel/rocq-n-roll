@@ -6,12 +6,12 @@ use std::time::{Duration, Instant};
 use crate::{req_lsp_and_play_midi, ProofStepperState};
 
 // Adjust 
-const PROOF_FONT_SIZE    : f32 = 12.0;
+const PROOF_FONT_SIZE    : f32 = 36.0;
 const PROOF_AREA_START_X : f32 = 20.0;
 const PROOF_AREA_START_Y : f32 = 20.0;
 const PROOF_AREA_WIDTH   : f32 = 400.0;
 const PROOF_AREA_HEIGHT  : f32 = 300.0;
-const SPACE_BETWEEN_PROOF_LINES : f32 = 20.0;
+const SPACE_BETWEEN_PROOF_LINES : f32 = 36.0;
 const VISIBLE_PROOF_LINES : usize = 10;
 
 

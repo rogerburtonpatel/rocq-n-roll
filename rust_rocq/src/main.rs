@@ -40,7 +40,8 @@ struct Args {
 }
 
 const JSON_VERSION: u64 = 1;
-const MIDI_TEST_NOTE_DURATION_DEFAULT: Option<Duration> = Some(Duration::from_millis(1100));
+const MIDI_NOTE_DURATION_DEFAULT: Option<Duration> = None;
+// Some(Duration::from_millis(1100));
 // used for interpretToPoint. 
 const MAX_LINE_LENGTH: usize = 9999;
 
@@ -321,7 +322,7 @@ fn handle_replay(state: &mut ProofStepperState) -> bool {
             };
 
             process_tactic_to_midi_with_proof_state(&state.midi_output, current_line_text, &last_goals_state,
-                MIDI_TEST_NOTE_DURATION_DEFAULT,
+                MIDI_NOTE_DURATION_DEFAULT,
                 proof_diff);
         }
     } else {
@@ -346,7 +347,7 @@ fn handle_skip(state: &mut ProofStepperState) -> bool {
 
 fn handle_midi_test(midi_output: &mut MidiOutput) -> bool {
     println!("\nTesting MIDI Out: Emitting NOTE ON...");
-    midi_output.play_note(90, 100, MIDI_TEST_NOTE_DURATION_DEFAULT);
+    midi_output.play_note(90, 100, MIDI_NOTE_DURATION_DEFAULT);
     println!("");
     false 
 }
@@ -502,7 +503,7 @@ pub fn req_lsp_and_play_midi(
                     for tactic in tactics_to_send {
                         println!("[MIDI] Sending to MIDI: '{}'", tactic);
                         process_tactic_to_midi_with_proof_state(&state.midi_output, &tactic, params,
-                            MIDI_TEST_NOTE_DURATION_DEFAULT,
+                            MIDI_NOTE_DURATION_DEFAULT,
                             proof_diff.clone());
                         thread::sleep(arpeggiation_sleep);
                     }

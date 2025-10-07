@@ -2,9 +2,9 @@ use eframe::egui;
 use egui::{Color32, FontId, Pos2, Rect, Stroke, Vec2};
 use rand::Rng;
 use serde_json::json;
-use std::time::{Duration, Instant};
+use std::{thread, time::{Duration, Instant}};
 
-use crate::{formatting::format_goals, midi::process_tactic_to_midi, ProofStepperState, JSON_VERSION, MIDI_TEST_NOTE_DURATION_DEFAULT};
+use crate::{formatting::format_goals, midi::{process_tactic_to_midi_with_proof_state, ProofStateDiff}, parse_info_message, parse_semicolon_tactics, ProofStateSnapshot, ProofStepperState, ARPEGGIATION_SLEEP_TIME, JSON_VERSION, MIDI_TEST_NOTE_DURATION_DEFAULT};
 
 // Adjust 
 const PROOF_FONT_SIZE    : f32 = 12.0;
@@ -198,29 +198,119 @@ impl RocqVisualizer {
         let timeout = std::time::Instant::now();
         let mut found_proof_view = false;
 
-        while timeout.elapsed() < Duration::from_secs(2) {
-            if let Some(msg) = self.proof_state.vscoq_lsp.recv(Duration::from_millis(100)) {
-                let method = msg.get("method").and_then(|m| m.as_str()).unwrap_or("");
-
-                if method == "vscoq/proofView" {
-                    if let Some(params) = msg.get("params") {
-                        println!("State after executing '{}':", line_text);
-                        println!("{}", format_goals(params, false));
-
-                        self.proof_state.last_goals_state = params.clone();
-
-                        // Process this proof state to MIDI
-                        process_tactic_to_midi(&self.proof_state.midi_output, &line_text, params,
-                            MIDI_TEST_NOTE_DURATION_DEFAULT);
-
-                        found_proof_view = true;
-                        break;
-                    }
-                }
-            } else if found_proof_view {
-                break;
+while timeout.elapsed() < Duration::from_secs(2) {
+        if let Some(msg) = self.proof_state.vscoq_lsp.recv(Duration::from_millis(100)) {
+            if self.debug {
+                println!("Received message: {:#?}", msg);
             }
+
+            let method = msg.get("method").and_then(|m| m.as_str()).unwrap_or("");
+
+            if method == "vscoq/proofView" {
+                println!("{}", msg);
+                if let Some(params) = msg.get("params") {
+                    println!("State after executing '{}':", line_text);
+                    println!("{}", format_goals(params, self.debug));
+
+                    // Parse and display goal counts
+                    if let Some(proof) = params.get("proof") {
+                        let goals_count = proof.get("goals")
+                            .and_then(|g| g.as_array())
+                            .map(|a| a.len())
+                            .unwrap_or(0);
+                        let shelved_count = proof.get("shelvedGoals")
+                            .and_then(|g| g.as_array())
+                            .map(|a| a.len())
+                            .unwrap_or(0);
+                        let unfocused_count = proof.get("unfocusedGoals")
+                            .and_then(|g| g.as_array())
+                            .map(|a| a.len())
+                            .unwrap_or(0);
+
+                        println!("[GOALS] Active: {}, Shelved: {}, Unfocused: {}",
+                                 goals_count, shelved_count, unfocused_count);
+                    }
+
+                    self.proof_state.last_goals_state = params.clone();
+
+                    // Update proof state snapshots for diff tracking
+                    self.proof_state.previous_proof_state = self.proof_state.current_proof_state.clone();
+                    self.proof_state.current_proof_state = Some(ProofStateSnapshot::from_proof_view(params));
+
+                    // Parse semicolons first
+                    let tactics = parse_semicolon_tactics(&line_text);
+                    println!("[PARSE] Line '{}' split by semicolon -> {} tactic(s): {:?}",
+                             line_text, tactics.len(), tactics);
+
+                    // Build final list of tactics to send
+                    let mut tactics_to_send = Vec::new();
+
+                    for tactic in tactics {
+                        // If this tactic contains "auto", replace it with extracted tactics
+                        if tactic.contains("auto") {
+                            if let Some(messages) = params.get("messages") {
+                                if let Some(extracted_tactics) = parse_info_message(messages) {
+                                    println!("[INFO] Replacing '{}' with {} extracted tactics: {:?}",
+                                             tactic, extracted_tactics.len(), extracted_tactics);
+                                    tactics_to_send.extend(extracted_tactics);
+                                } else {
+                                    tactics_to_send.push(tactic);
+                                }
+                            } else {
+                                tactics_to_send.push(tactic);
+                            }
+                        } else {
+                            // Not an auto tactic, use as-is
+                            tactics_to_send.push(tactic);
+                        }
+                    }
+
+                    println!("[PARSE] Final tactics to send: {:?}", tactics_to_send);
+
+                    // Stop previous notes so OP-1 retriggers (comment this line to undo)
+                    self.proof_state.midi_output.stop_all_notes(None);
+
+                    // Create proof state diff if we have previous state
+                    let proof_diff = if let (Some(prev), Some(curr)) = (&self.proof_state.previous_proof_state, &self.proof_state.current_proof_state) {
+                        Some(ProofStateDiff {
+                            prev_goals: prev.goals_count,
+                            prev_shelved: prev.shelved_count,
+                            prev_unfocused: prev.unfocused_count,
+                            curr_goals: curr.goals_count,
+                            curr_shelved: curr.shelved_count,
+                            curr_unfocused: curr.unfocused_count,
+                            step_number: self.proof_state.current_step + 1,
+                            total_steps: self.proof_state.total_steps,
+                        })
+                    } else {
+                        None
+                    };
+
+                    // Send each tactic to MIDI with proof state diff
+                    let arpeggiation_sleep : Duration =
+                    if tactics_to_send.len() > 1 {
+                        Duration::new(0, ARPEGGIATION_SLEEP_TIME)
+                    } else {
+                        Duration::new(0, 0)
+                    };
+                    // Send each tactic to MIDI
+                    for tactic in tactics_to_send {
+                        println!("[MIDI] Sending to MIDI: '{}'", tactic);
+                        process_tactic_to_midi_with_proof_state(&self.proof_state.midi_output, &tactic, params,
+                            MIDI_TEST_NOTE_DURATION_DEFAULT,
+                            proof_diff.clone());
+                        thread::sleep(arpeggiation_sleep);
+                    }
+
+                    found_proof_view = true;
+                    break;
+                }
+            }
+        } else if found_proof_view {
+            break;
         }
+    }
+
 
         if !found_proof_view {
             println!("No proof view received for this step");

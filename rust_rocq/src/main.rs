@@ -856,9 +856,6 @@ pub fn parse_info_message(messages: &serde_json::Value) -> Option<Vec<String>> {
             }
         }
     }
-
-    None
-
     None
 }
 
@@ -922,6 +919,7 @@ pub fn extract_proof_steps(coq_content: &str) -> Vec<(usize, String)> {
     }
 
     proof_steps
+}
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -1081,4 +1079,5 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     state.midi_output.stop_all_notes(None);
 
     Ok(())
-}
+    }
+

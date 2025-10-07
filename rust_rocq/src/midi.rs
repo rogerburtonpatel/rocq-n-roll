@@ -24,7 +24,7 @@ const DEFAULT_NOTE : Note = (55, 60);
 const MAX_PITCH : Pitch = 127;
 
 // Length notes held and unheld for --auto-play
-const AUTOPLAY_NOTE_LENGTH  : NoteDuration = 800;
+const AUTOPLAY_NOTE_LENGTH  : NoteDuration = 200;
 const AUTOPLAY_PAUSE_LENGTH : NoteDuration = 200;
 
 // When getting dissonant (bad proof state), how much to play and how long 

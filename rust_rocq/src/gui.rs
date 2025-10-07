@@ -130,15 +130,10 @@ impl RocqVisualizer {
             if !self.last_frame_keys.contains(key) {
                 match key {
                     egui::Key::ArrowDown => {
-                        if self.current_line_index < self.proof_state.proof_lines.len().saturating_sub(1) {
-                            // TODO: sync sound and viz with actual proof 
-                            // let (new_proof_state, ...) = self.req_lsp_and_play_midi();
-                            // self.proof_state.advance_step(new_proof_state); // sm like this 
-                            // self.spawn_tree_pattern(ctx); // base off of new state 
-                            self.req_lsp_and_play_midi();
-                            self.proof_state.advance_step();                            
-                            self.current_line_index += 1;
+                        if self.proof_state.current_step < self.proof_state.proof_lines.len().saturating_sub(1) {
+
                             self.spawn_tree_pattern(ctx);
+                            self.proof_state.advance_step();
                         }
                     }
                     egui::Key::A => {
@@ -432,14 +427,14 @@ while timeout.elapsed() < Duration::from_secs(2) {
         
         let painter = ctx.layer_painter(egui::LayerId::new(egui::Order::Foreground, egui::Id::new("proof_text")));
         
-        let start_line = self.current_line_index.saturating_sub(self.visible_lines / 2);
+        let start_line = self.proof_state.current_step.saturating_sub(self.visible_lines / 2);
         let end_line = (start_line + self.visible_lines).min(self.proof_state.proof_lines.len());
         
         for (i, line_idx) in (start_line..end_line).enumerate() {
             let y_offset = i as f32 * SPACE_BETWEEN_PROOF_LINES;
             let pos = Pos2::new(proof_area.min.x, proof_area.min.y + y_offset);
             
-            let color = if line_idx == self.current_line_index {
+            let color = if line_idx == self.proof_state.current_step {
                 // Highlight current line
                 Color32::from_rgb(PROOF_LINE_HIGHLIGHT_COLOR.0,
                                   PROOF_LINE_HIGHLIGHT_COLOR.1, 

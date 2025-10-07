@@ -383,9 +383,6 @@ fn handle_execute_step(
     }
 
     println!("\n{}\n", "-".repeat(60));
-    state.advance_step();
-
-    Ok(false)
 }
 
 /// Parse a tactic statement that may contain semicolon combinators

@@ -645,7 +645,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         // ProofStepperState may be a substruct of RocqVisualizer.
         // down arrow -> call lsp, get result. play sound based on result. do viz based on result. 
         // honestly, we want to go up and down. TODO: go back. 
-        run_with_gui(state)?;
+        run_with_gui(state, args.debug)?;
         return Ok(());
     }
 

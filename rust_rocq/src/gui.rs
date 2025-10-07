@@ -104,18 +104,20 @@ pub struct RocqVisualizer {
     
     // Input handling
     last_frame_keys: std::collections::HashSet<egui::Key>,
+    debug: bool,
 }
 
 
 impl RocqVisualizer {
-    pub fn new(proof_state: ProofStepperState, _cc: &eframe::CreationContext<'_>) -> Self {
+    pub fn new(proof_state: ProofStepperState, _cc: &eframe::CreationContext<'_>, debug: bool) -> Self {
         Self {
             current_line_index: 0,
             visible_lines: VISIBLE_PROOF_LINES,
             tree_patterns: Vec::new(),
             flicker_message: None,
             last_frame_keys: std::collections::HashSet::new(),
-            proof_state: proof_state
+            proof_state: proof_state,
+            debug: debug,
         }
     }
 
@@ -526,6 +528,6 @@ pub fn run_with_gui(proof_state: ProofStepperState) -> Result<(), eframe::Error>
     eframe::run_native(
         "Rocq Proof Visualizer",
         options,
-        Box::new(|cc| Box::new(RocqVisualizer::new(proof_state, cc))),
+        Box::new(move |cc| Box::new(RocqVisualizer::new(proof_state, cc, debug))),
     )
 }

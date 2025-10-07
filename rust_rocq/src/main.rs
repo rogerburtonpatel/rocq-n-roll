@@ -231,10 +231,21 @@ fn handle_execute_step(
     state: &mut ProofStepperState,
     debug: bool,
 ) -> Result<bool, Box<dyn std::error::Error>> {
-    if state.is_complete() {
+        if state.is_complete() {
         println!("Proof already complete!");
         return Ok(false);
     }
+
+    req_lsp_and_play_midi(state, debug);
+    state.advance_step();
+
+    Ok(false)
+}
+
+pub fn req_lsp_and_play_midi(
+    state: &mut ProofStepperState,
+    debug: bool,
+) {
 
     let (line_num, line_text) = state.get_current_tactic().map(|(n, t)| (*n, t.clone())).unwrap_or((0, String::new()));
     println!("\nExecuting step {}/{}...", state.current_step + 1, state.total_steps);
@@ -258,8 +269,24 @@ fn handle_execute_step(
     if debug {
         println!("Sending interpretToPoint: {}", interpret_msg);
     }
-
-    state.send_message(&interpret_msg)?;
+ // Send vscoq/interpretToPoint request
+        if let Err(e) = state.send_message(&json!({
+            "jsonrpc": "2.0",
+            "method": "vscoq/interpretToPoint",
+            "params": {
+                "textDocument": {
+                    "uri": state.document_uri.clone(),
+                    "version": JSON_VERSION
+                },
+                "position": {
+                    "line": line_num,
+                    "character": 999
+                }
+            }
+        })) {
+            eprintln!("Error sending interpretToPoint: {e}");
+            return;
+        }
 
     // Wait for proofView response
     let timeout = std::time::Instant::now();

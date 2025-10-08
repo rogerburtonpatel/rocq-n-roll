@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::thread;
 use std::time::Duration;
+use log::debug;
 use rand::Rng;
 use serde_json::Value;
 
@@ -86,6 +87,7 @@ impl MidiOutput {
     }
     
     pub fn play_note(&self, pitch: u8, velocity: u8, hold_duration: Option<Duration>) {
+        debug!("[MIDI] Playing note ({}, {})", pitch, velocity);
         if !self.enabled || self.context.is_none() || self.port_id.is_none() {
             return;
         }

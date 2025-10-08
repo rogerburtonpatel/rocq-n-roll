@@ -4,8 +4,7 @@
 // midi off fade out- stop_all_notes
 
 use clap::Parser;
-use log::{debug, info};
-use serde_json::json;
+use log::debug;
 use std::{env, fs, thread};
 use std::io::{self, BufRead, Write};
 use std::path::PathBuf;
@@ -428,7 +427,7 @@ pub fn req_lsp_and_play_midi(
                     // Print stored goals from snapshot
                     if let Some(snapshot) = &state.current_proof_state {
                         if !snapshot.goals.is_empty() {
-                            println!("[STORED] Snapshot contains {} goal(s):", snapshot.goals.len());
+                            debug!("[STORED] Snapshot contains {} goal(s):", snapshot.goals.len());
                             for (i, goal) in snapshot.goals.iter().enumerate() {
                                 println!("  Stored Goal {}: {}", i + 1, goal.text);
                                 if !goal.hypotheses.is_empty() {
@@ -443,18 +442,21 @@ pub fn req_lsp_and_play_midi(
 
                     // Parse semicolons first
                     let tactics = parse_semicolon_tactics(&line_text);
-                    println!("[PARSE] Line '{}' split by semicolon -> {} tactic(s): {:?}",
+                    debug!("[PARSE] Line '{}' split by semicolon -> {} tactic(s): {:?}",
                              line_text, tactics.len(), tactics);
 
                     // Build final list of tactics to send
                     let mut tactics_to_send = Vec::new();
 
+                    let mut has_auto : bool = false; 
+
                     for tactic in tactics {
                         // If this tactic contains "auto", replace it with extracted tactics
                         if tactic.contains("auto") {
+                            has_auto = true;
                             if let Some(messages) = params.get("messages") {
                                 if let Some(extracted_tactics) = parse_info_message(messages) {
-                                    println!("[INFO] Replacing '{}' with {} extracted tactics: {:?}",
+                                    debug!("[INFO] Replacing '{}' with {} extracted tactics: {:?}",
                                              tactic, extracted_tactics.len(), extracted_tactics);
                                     tactics_to_send.extend(extracted_tactics);
                                 } else {
@@ -469,7 +471,7 @@ pub fn req_lsp_and_play_midi(
                         }
                     }
 
-                    println!("[PARSE] Final tactics to send: {:?}", tactics_to_send);
+                    debug!("[PARSE] Final tactics to send: {:?}", tactics_to_send);
 
                     // Stop previous notes so OP-1 retriggers (comment this line to undo)
                     state.midi_output.stop_all_notes(None);
@@ -494,7 +496,7 @@ pub fn req_lsp_and_play_midi(
 
                     // Send each tactic to MIDI with proof state diff
                     let arpeggiation_sleep : Duration =
-                    if tactics_to_send.len() > 1 {
+                    if tactics_to_send.len() > 1 && has_auto {
                         Duration::new(0, ARPEGGIATION_SLEEP_TIME)
                     } else {
                         Duration::new(0, 0)
@@ -502,9 +504,11 @@ pub fn req_lsp_and_play_midi(
                     // Send each tactic to MIDI
                     for tactic in tactics_to_send {
                         println!("[MIDI] Sending to MIDI: '{}'", tactic);
-                        process_tactic_to_midi_with_proof_state(&state.midi_output, &tactic, params,
-                            MIDI_NOTE_DURATION_DEFAULT,
-                            proof_diff.clone());
+                        // thread::spawn(move || { 
+                            process_tactic_to_midi_with_proof_state(&state.midi_output, &tactic, params,
+                                MIDI_NOTE_DURATION_DEFAULT,
+                                proof_diff.clone());
+                        // });
                         thread::sleep(arpeggiation_sleep);
                     }
 

@@ -1,9 +1,10 @@
 use eframe::egui;
 use egui::{Color32, FontId, Pos2, Rect, Stroke, Vec2};
+use log::debug;
 use rand::Rng;
-use std::time::{Duration, Instant};
+use std::{thread, time::{Duration, Instant}};
 
-use crate::{req_lsp_and_play_midi, ProofStepperState};
+use crate::{formatting::format_goals, midi::{process_tactic_to_midi_with_proof_state, ProofStateDiff}, parse_info_message, parse_semicolon_tactics, req_lsp_and_play_midi, ProofStateSnapshot, ProofStepperState, ARPEGGIATION_SLEEP_TIME, JSON_VERSION, MAX_LINE_LENGTH, MIDI_NOTE_DURATION_DEFAULT};
 
 // Adjust 
 const PROOF_FONT_SIZE    : f32 = 36.0;
@@ -11,7 +12,7 @@ const PROOF_AREA_START_X : f32 = 20.0;
 const PROOF_AREA_START_Y : f32 = 20.0;
 const PROOF_AREA_WIDTH   : f32 = 400.0;
 const PROOF_AREA_HEIGHT  : f32 = 300.0;
-const SPACE_BETWEEN_PROOF_LINES : f32 = 36.0;
+const SPACE_BETWEEN_PROOF_LINES : f32 = 42.0;
 const VISIBLE_PROOF_LINES : usize = 10;
 
 
@@ -124,12 +125,173 @@ impl RocqVisualizer {
         for key in &current_keys {
             if !self.last_frame_keys.contains(key) {
                 match key {
-                    egui::Key::ArrowDown => {
-                        if self.proof_state.current_step < self.proof_state.proof_lines.len().saturating_sub(1) {
+                    egui::Key::ArrowDown | egui::Key::Enter => {
+                        if self.proof_state.current_step < self.proof_state.proof_lines.len() {
 
                             self.spawn_tree_pattern(ctx);
+                            
 
-                            req_lsp_and_play_midi(&mut self.proof_state);
+                            // todo tree pattern based on goals
+                            // todo show goals in gui
+                            {
+                                let state: &mut ProofStepperState = &mut self.proof_state;
+
+                                let (line_num, line_text) = state.get_current_tactic().map(|(n, t)| (*n, t.clone())).unwrap_or((0, String::new()));
+                                debug!("\nExecuting step {}/{}...", state.current_step + 1, state.total_steps);
+
+                             // Send vscoq/interpretToPoint request
+                                    if let Err(e) = state.vscoq_lsp.interpret_to_point(
+                                            state.document_uri.clone(), 
+                                            JSON_VERSION, 
+                                            line_num, 
+                                            MAX_LINE_LENGTH) {
+                                        eprintln!("Error sending interpretToPoint: {e}");
+                                        return;
+                                    }
+
+                                // Wait for proofView response
+                                let timeout = std::time::Instant::now();
+                                let mut found_proof_view = false;
+
+                                while timeout.elapsed() < Duration::from_secs(2) {
+                                    if let Some(msg) = state.vscoq_lsp.recv(Duration::from_millis(100)) {
+
+                                        debug!("Received message: {:#?}", msg);
+
+                                        let method = msg.get("method").and_then(|m| m.as_str()).unwrap_or("");
+
+                                        if method == "vscoq/proofView" {
+                                            debug!("{}", msg);
+                                            if let Some(params) = msg.get("params") {
+                                                println!("State after executing '{}':", line_text);
+                                                println!("{}", format_goals(params));
+
+                                                // Parse and display goal counts
+                                                if let Some(proof) = params.get("proof") {
+                                                    let goals_count = proof.get("goals")
+                                                        .and_then(|g| g.as_array())
+                                                        .map(|a| a.len())
+                                                        .unwrap_or(0);
+                                                    let shelved_count = proof.get("shelvedGoals")
+                                                        .and_then(|g| g.as_array())
+                                                        .map(|a| a.len())
+                                                        .unwrap_or(0);
+                                                    let unfocused_count = proof.get("unfocusedGoals")
+                                                        .and_then(|g| g.as_array())
+                                                        .map(|a| a.len())
+                                                        .unwrap_or(0);
+
+                                                    println!("[GOALS] Active: {}, Shelved: {}, Unfocused: {}",
+                                                             goals_count, shelved_count, unfocused_count);
+                                                }
+
+                                                state.last_goals_state = params.clone();
+
+                                                // Update proof state snapshots for diff tracking
+                                                state.previous_proof_state = state.current_proof_state.clone();
+                                                state.current_proof_state = Some(ProofStateSnapshot::from_proof_view(params));
+
+                                                // Print stored goals from snapshot
+                                                if let Some(snapshot) = &state.current_proof_state {
+                                                    if !snapshot.goals.is_empty() {
+                                                        debug!("[STORED] Snapshot contains {} goal(s):", snapshot.goals.len());
+                                                        for (i, goal) in snapshot.goals.iter().enumerate() {
+                                                            println!("  Stored Goal {}: {}", i + 1, goal.text);
+                                                            if !goal.hypotheses.is_empty() {
+                                                                println!("    Stored Hypotheses: {}", goal.hypotheses.len());
+                                                                for hyp in &goal.hypotheses {
+                                                                    println!("      {}", hyp);
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }
+
+                                                // Parse semicolons first
+                                                let tactics = parse_semicolon_tactics(&line_text);
+                                                debug!("[PARSE] Line '{}' split by semicolon -> {} tactic(s): {:?}",
+                                                         line_text, tactics.len(), tactics);
+
+                                                // Build final list of tactics to send
+                                                let mut tactics_to_send = Vec::new();
+
+                                                let mut has_auto : bool = false; 
+
+                                                for tactic in tactics {
+                                                    // If this tactic contains "auto", replace it with extracted tactics
+                                                    if tactic.contains("auto") {
+                                                        has_auto = true;
+                                                        if let Some(messages) = params.get("messages") {
+                                                            if let Some(extracted_tactics) = parse_info_message(messages) {
+                                                                debug!("[INFO] Replacing '{}' with {} extracted tactics: {:?}",
+                                                                         tactic, extracted_tactics.len(), extracted_tactics);
+                                                                tactics_to_send.extend(extracted_tactics);
+                                                            } else {
+                                                                tactics_to_send.push(tactic);
+                                                            }
+                                                        } else {
+                                                            tactics_to_send.push(tactic);
+                                                        }
+                                                    } else {
+                                                        // Not an auto tactic, use as-is
+                                                        tactics_to_send.push(tactic);
+                                                    }
+                                                }
+
+                                                debug!("[PARSE] Final tactics to send: {:?}", tactics_to_send);
+
+                                                // Stop previous notes so OP-1 retriggers (comment this line to undo)
+                                                state.midi_output.stop_all_notes(None);
+
+                                                // Create proof state diff if we have previous state
+                                                let proof_diff = if let (Some(prev), Some(curr)) = (&state.previous_proof_state, &state.current_proof_state) {
+                                                    Some(ProofStateDiff {
+                                                        prev_goals: prev.goals_count,
+                                                        prev_shelved: prev.shelved_count,
+                                                        prev_unfocused: prev.unfocused_count,
+                                                        curr_goals: curr.goals_count,
+                                                        curr_shelved: curr.shelved_count,
+                                                        curr_unfocused: curr.unfocused_count,
+                                                        step_number: state.current_step + 1,
+                                                        total_steps: state.total_steps,
+                                                        prev_goals_list: prev.goals.clone(),
+                                                        curr_goals_list: curr.goals.clone(),
+                                                    })
+                                                } else {
+                                                    None
+                                                };
+
+                                                // Send each tactic to MIDI with proof state diff
+                                                let arpeggiation_sleep : Duration =
+                                                if tactics_to_send.len() > 1 && has_auto {
+                                                    Duration::new(0, ARPEGGIATION_SLEEP_TIME)
+                                                } else {
+                                                    Duration::new(0, 0)
+                                                };
+                                                // Send each tactic to MIDI
+                                                for tactic in tactics_to_send {
+                                                    println!("[MIDI] Sending to MIDI: '{}'", tactic);
+                                                    process_tactic_to_midi_with_proof_state(&state.midi_output, &tactic, params,
+                                                        MIDI_NOTE_DURATION_DEFAULT,
+                                                        proof_diff.clone());
+                                                    thread::sleep(arpeggiation_sleep);
+                                                }
+
+                                                found_proof_view = true;
+                                                break;
+                                            }
+                                        }
+                                    } else if found_proof_view {
+                                        break;
+                                    }
+                                }
+
+                                if !found_proof_view {
+                                    println!("No proof view received for this step");
+                                }
+
+                                println!("\n{}\n", "-".repeat(60));
+                            };
                             
                             self.proof_state.advance_step();
                         }
@@ -267,41 +429,59 @@ impl RocqVisualizer {
         }
     }
 
-    fn render_proof_text(&self, ctx: &egui::Context) {
-        let proof_area = Rect::from_min_size(
-            Pos2::new(PROOF_AREA_START_X, PROOF_AREA_START_Y),
-            Vec2::new(PROOF_AREA_WIDTH, PROOF_AREA_HEIGHT),
+fn render_proof_text(&self, ctx: &egui::Context) {
+    let proof_area = Rect::from_min_size(
+        Pos2::new(PROOF_AREA_START_X, PROOF_AREA_START_Y),
+        Vec2::new(PROOF_AREA_WIDTH, PROOF_AREA_HEIGHT),
+    );
+
+    // Keep proof text in the Foreground so it draws above trees (trees are Background).
+    let painter = ctx.layer_painter(egui::LayerId::new(egui::Order::Foreground, egui::Id::new("proof_text")));
+
+    let start_line = self.proof_state.current_step.saturating_sub(self.visible_lines / 2);
+    let end_line = (start_line + self.visible_lines).min(self.proof_state.proof_lines.len());
+
+    for (i, line_idx) in (start_line..end_line).enumerate() {
+        let y_offset = i as f32 * SPACE_BETWEEN_PROOF_LINES;
+        let pos = Pos2::new(proof_area.min.x, proof_area.min.y + y_offset);
+
+        let line_text = &self.proof_state.proof_lines[line_idx].1;
+        let font = FontId::monospace(PROOF_FONT_SIZE);
+
+        // Measure text so we can draw a background rectangle exactly behind it.
+        let galley = painter.layout_no_wrap(line_text.clone(), font.clone(), Color32::WHITE);
+        let text_size = galley.size();
+
+        // Rectangle anchored at pos (LEFT_TOP) with a little padding.
+        let text_rect = Rect::from_min_size(pos, text_size);
+        let bg_rect = text_rect.expand(0.1);
+
+        // Faint gray background; current line a bit brighter.
+        let base_bg = Color32::from_rgba_unmultiplied(60, 60, 60, 150); // faint gray
+        let current_bg = Color32::from_rgba_unmultiplied(90, 90, 90, 190); // slightly stronger
+        let bg_color = if line_idx == self.proof_state.current_step { current_bg } else { base_bg };
+
+        painter.rect_filled(bg_rect, 2.0, bg_color);
+
+        // Decide text color as before.
+        let color = if line_idx == self.proof_state.current_step {
+            Color32::from_rgb(PROOF_LINE_HIGHLIGHT_COLOR.0, PROOF_LINE_HIGHLIGHT_COLOR.1, PROOF_LINE_HIGHLIGHT_COLOR.2)
+        } else {
+            Color32::from_rgb(PROOF_LINE_DEFAULT_COLOR.0, PROOF_LINE_DEFAULT_COLOR.1, PROOF_LINE_DEFAULT_COLOR.2)
+        };
+
+        // Draw the text slightly inset to match the padding.
+        let text_pos = Pos2::new(text_rect.min.x + 6.0, text_rect.min.y + 2.0);
+        painter.text(
+            text_pos,
+            egui::Align2::LEFT_TOP,
+            line_text,
+            font,
+            color,
         );
-        
-        let painter = ctx.layer_painter(egui::LayerId::new(egui::Order::Foreground, egui::Id::new("proof_text")));
-        
-        let start_line = self.proof_state.current_step.saturating_sub(self.visible_lines / 2);
-        let end_line = (start_line + self.visible_lines).min(self.proof_state.proof_lines.len());
-        
-        for (i, line_idx) in (start_line..end_line).enumerate() {
-            let y_offset = i as f32 * SPACE_BETWEEN_PROOF_LINES;
-            let pos = Pos2::new(proof_area.min.x, proof_area.min.y + y_offset);
-            
-            let color = if line_idx == self.proof_state.current_step {
-                // Highlight current line
-                Color32::from_rgb(PROOF_LINE_HIGHLIGHT_COLOR.0,
-                                  PROOF_LINE_HIGHLIGHT_COLOR.1, 
-                                  PROOF_LINE_HIGHLIGHT_COLOR.2) 
-            } else {
-                Color32::from_rgb(PROOF_LINE_DEFAULT_COLOR.0,
-                                  PROOF_LINE_DEFAULT_COLOR.1, 
-                                  PROOF_LINE_DEFAULT_COLOR.2)
-            };
-            
-            painter.text(
-                pos,
-                egui::Align2::LEFT_TOP,
-                &self.proof_state.proof_lines[line_idx].1,
-                FontId::monospace(PROOF_FONT_SIZE),
-                color,
-            );
-        }
     }
+}
+
 
     fn render_tree_patterns(&self, ctx: &egui::Context) {
         let painter = ctx.layer_painter(egui::LayerId::new(egui::Order::Background, egui::Id::new("tree_patterns")));

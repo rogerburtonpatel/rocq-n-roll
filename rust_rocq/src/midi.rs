@@ -193,6 +193,10 @@ pub fn create_tactic_midi_map() -> HashMap<&'static str, Note> {
     map.insert("admitted", (42, 120));     // F#2 - same as admit
     map.insert("sorry", (41, 127));        // F2 - even more dissonant
     map.insert("abort", (43, 120));        // G2 - failed proof
+
+    // Wrappers (no base note — handled dynamically)
+    map.insert("try", (0, 0));
+    map.insert("repeat", (0, 0));
     
     map
 }
@@ -205,6 +209,17 @@ pub fn extract_tactic_name(line: &str) -> String {
 
     // Try to match multi-word tactics first (up to 3 words)
     let words: Vec<&str> = trimmed.split_whitespace().take(3).collect();
+
+       // Handle wrapper tactics like `try` or `repeat`
+    if let Some(first) = words.first() {
+        let first_lower = first.to_lowercase();
+        if first_lower == "try" || first_lower == "repeat" {
+            // Process the next tactic recursively
+            let remainder = trimmed[first.len()..].trim_start();
+            let next_tactic = extract_tactic_name(remainder);
+            return format!("{} {}", first_lower, next_tactic);
+        }
+    }
 
     // Try matching from longest to shortest
     for n in (1..=words.len()).rev() {
@@ -281,15 +296,12 @@ pub fn process_tactic_to_midi(
     goals_json: &serde_json::Value,
     hold_duration: Option<Duration>
 ) {
-    let tactic_map = create_tactic_midi_map();
     let tactic_name = extract_tactic_name(line_text);
 
     println!("\n[MIDI] Processing tactic: '{}' -> '{}'", line_text, tactic_name);
     
     // Get base note for the tactic
-    let (mut pitch, mut velocity) = tactic_map.get(tactic_name.as_str())
-        .copied()
-        .unwrap_or(DEFAULT_NOTE); // Default: G3, medium velocity
+    let (mut pitch, mut velocity) = get_tactic_note(tactic_name.as_str());
     
     (pitch, velocity) = adjust_note_using_context(pitch, velocity, goals_json);
     // Play the note
@@ -308,7 +320,6 @@ pub fn process_tactic_to_midi_with_proof_state(
     hold_duration: Option<Duration>,
     proof_diff: Option<ProofStateDiff>
 ) {
-    let tactic_map = create_tactic_midi_map();
     let tactic_name = extract_tactic_name(line_text);
 
     println!("\n[MIDI] Processing tactic: '{}' -> '{}'", line_text, tactic_name);
@@ -345,9 +356,7 @@ pub fn process_tactic_to_midi_with_proof_state(
     }
 
     // Get base note for the tactic
-    let (mut pitch, mut velocity) = tactic_map.get(tactic_name.as_str())
-        .copied()
-        .unwrap_or(DEFAULT_NOTE); // Default: G3, medium velocity
+    let (mut pitch, mut velocity) = get_tactic_note(tactic_name.as_str());
 
     // Modify based on proof state complexity
     if let Some(goals_config) = goals_json.get("goals") {
@@ -461,13 +470,9 @@ fn play_dissonant_cluster(midi_output: &MidiOutput, base_pitch: u8) {
 pub fn autoplay_proof_sequence(proof_steps: &[(usize, String)], midi_output: &MidiOutput) {
     println!("\n[MIDI] Playing entire proof sequence with delays...");
     
-    let tactic_map = create_tactic_midi_map();
-    
     for (i, (_, line_text)) in proof_steps.iter().enumerate() {
         let tactic_name = extract_tactic_name(line_text);
-        let (mut pitch, mut velocity) = tactic_map.get(tactic_name.as_str())
-            .copied()
-            .unwrap_or(DEFAULT_NOTE);
+        let (mut pitch, mut velocity) = get_tactic_note(tactic_name.as_str());
 
         // RANDOMIZATION: REMOVE
         let mut rng = rand::thread_rng();
@@ -491,4 +496,18 @@ pub fn autoplay_proof_sequence(proof_steps: &[(usize, String)], midi_output: &Mi
     midi_output.stop_all_notes(None);
     
     println!("[MIDI] Proof sequence complete!");
+}
+
+pub fn get_tactic_note(line: &str) -> Note {
+    let tactic = extract_tactic_name(line);
+    let tactic_map = create_tactic_midi_map();
+
+    // Handle wrapped forms like "try simpl" or "repeat intros"
+    if tactic.starts_with("try ") || tactic.starts_with("repeat ") {
+        let inner = tactic.split_once(' ').unwrap().1;
+        let (mut note, vel) = get_tactic_note(inner);
+        note += 12; // raise octave
+        return (note, vel);
+    }
+    tactic_map.get(tactic.as_str()).copied().unwrap_or(DEFAULT_NOTE) // Default: G3, medium velocity
 }

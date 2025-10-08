@@ -440,6 +440,8 @@ pub fn req_lsp_and_play_midi(
                         }
                     }
 
+                    // here, parse . separated tactics into individual list
+
                     // Parse semicolons first
                     let tactics = parse_semicolon_tactics(&line_text);
                     debug!("[PARSE] Line '{}' split by semicolon -> {} tactic(s): {:?}",

@@ -87,7 +87,7 @@ impl MidiOutput {
     }
     
     pub fn play_note(&self, pitch: u8, velocity: u8, hold_duration: Option<Duration>) {
-        debug!("[MIDI] Playing note ({}, {})", pitch, velocity);
+        debug!("[MIDI] Playing note ({}, {}) at duration {:#?}", pitch, velocity, hold_duration);
         if !self.enabled || self.context.is_none() || self.port_id.is_none() {
             return;
         }

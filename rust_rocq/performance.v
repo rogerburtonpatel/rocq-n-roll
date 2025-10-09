@@ -5,16 +5,18 @@ Set Info Trivial.
 
 Theorem simple_add : forall n : nat, 0 + n = n.
 Proof.
+    intros. 
     simpl. 
     reflexivity. 
 Qed.
 
-Theorem semicolon_simpl : forall n : nat, n + 0 = n.
+Theorem semicolon_simpl : forall n : nat, 0 + n = n.
 Proof.
-    intros; simpl; reflexivity.
+    intros; simpl; 
+    reflexivity.
 Qed.
 
-Theorem auto_add : forall n : nat, n + 0 = n.
+Theorem auto_add : forall n : nat, 0 + n = n.
 Proof.
     auto.
 Qed.
@@ -22,6 +24,6 @@ Qed.
 Theorem split_auto : forall n : nat, n + 0 = n /\ 0 + n = n.
 Proof.   
   split. 
-  - auto. 
+  - rewrite add_0_r. 
   - auto. 
 Qed.

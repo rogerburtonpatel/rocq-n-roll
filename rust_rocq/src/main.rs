@@ -39,7 +39,8 @@ struct Args {
 }
 
 const JSON_VERSION: u64 = 1;
-const MIDI_NOTE_DURATION_DEFAULT: Option<Duration> = None;
+const MIDI_NOTE_DURATION_DEFAULT: Option<Duration> = 
+None;
 // Some(Duration::from_millis(1100));
 // used for interpretToPoint. 
 const MAX_LINE_LENGTH: usize = 9999;

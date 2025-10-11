@@ -105,6 +105,7 @@ pub struct RocqVisualizer {
     // Visual effects
     tree_patterns: Vec<TreePattern>,
     flicker_message: Option<FlickerMessage>,
+    flash_message: Option<FlickerMessage>,
     
     // Input handling
     last_frame_keys: std::collections::HashSet<egui::Key>,
@@ -117,6 +118,7 @@ impl RocqVisualizer {
             visible_lines: VISIBLE_PROOF_LINES,
             tree_patterns: Vec::new(),
             flicker_message: None,
+            flash_message: None,
             last_frame_keys: std::collections::HashSet::new(),
             proof_state: proof_state,
         }
@@ -303,17 +305,62 @@ impl RocqVisualizer {
                         }
                     }
                     egui::Key::A => {
-                        self.show_flicker_message("THEY RENAMED COQ SO WE COULD ROCQ".to_string());
+                        self.show_flash_message("THEY RENAMED COQ SO WE COULD ROCQ".to_string());
                     }
                     egui::Key::S => {
-                        self.show_flicker_message("RAISE THE PROOF".to_string());
+                        self.show_flash_message("RAISE THE PROOF".to_string());
                     }
                     egui::Key::D => {
-                        self.show_flicker_message("THE SOUND OF SOUNDNESS".to_string());
+                        self.show_flash_message("THE SOUND OF SOUNDNESS".to_string());
                     }
                     egui::Key::F => {
-                        self.show_flicker_message("LEO DE MOURA".to_string());
+                        self.show_flash_message("LEO DE MOURA".to_string());
                     }
+
+
+                    egui::Key::Num1 => {
+                        self.show_flicker_message("WELCOME TO ROCQNROLL.".to_string());
+                    }
+
+                    egui::Key::Num2 => {
+                        self.show_flicker_message("WE JAM WITH OUR PROOFS HERE.".to_string());
+                    }
+
+                    egui::Key::Num3 => {
+                        self.show_flicker_message("TACTICS MAKE NOTES.".to_string());
+                    }
+
+                    egui::Key::Num4 => {
+                        self.show_flicker_message("SEMICOLON MAKES CHORDS.".to_string());
+                    }
+
+                    egui::Key::Num5 => {
+                        self.show_flicker_message("AUTO MAKES SEQUENCES.".to_string());
+                    }
+
+                    egui::Key::Num6 => {
+                        self.show_flicker_message("MORE GOALS MAKES MORE MUSIC.".to_string());
+                    }
+
+                    egui::Key::Num7 => {
+                        self.show_flicker_message("THAT WAS FUN.".to_string());
+                    }
+
+                    egui::Key::Num8 => {
+                        self.show_flicker_message("LET'S PLAY ANOTHER SHORT EXAMPLE.".to_string());
+                    }
+
+                    egui::Key::Num9 => {
+                        self.show_flicker_message("HOW ABOUT".to_string());
+                    }
+
+                    egui::Key::Num0 => {
+                        self.show_flash_message("VELLVM".to_string());
+                        self.proof_state.midi_output.play_note(40, 100, None);
+                        self.proof_state.midi_output.play_note(47, 100, None);
+                        self.proof_state.midi_output.play_note(52, 100, None);
+                    }
+
                     egui::Key::Escape => {
                             if let Err(e) = self.proof_state.vscoq_lsp.close_document(&self.proof_state.document_uri) {
                                 eprintln!("Error closing vscoq document: {e}");
@@ -334,9 +381,18 @@ impl RocqVisualizer {
         self.flicker_message = Some(FlickerMessage {
             text,
             start_time: Instant::now(),
-            duration: Duration::from_secs(2),
+            duration: Duration::from_millis(2500)
         });
     }
+
+    fn show_flash_message(&mut self, text: String) {
+        self.flash_message = Some(FlickerMessage {
+            text,
+            start_time: Instant::now(),
+            duration: Duration::from_secs(2), // Not used - remove? 
+        });
+    }
+
 
 fn spawn_tree_pattern(&mut self, ctx: &egui::Context, tactic_count: usize) {
     let screen_rect = ctx.screen_rect();
@@ -592,7 +648,7 @@ fn draw_branch_partial(
 
 
 fn render_flash_text(&self, ctx: &egui::Context) {
-    if let Some(ref flicker) = self.flicker_message {
+    if let Some(ref flash) = self.flash_message {
         // 🔧 Controls
         let bpm: f32 = 170.0;
         let beats_per_word: f32 = 2.0;
@@ -600,10 +656,10 @@ fn render_flash_text(&self, ctx: &egui::Context) {
         let time_held_on_screen: f32 = 1.5;
         let fade_out_time: f32 = 1.0;
 
-        let elapsed = Instant::now().duration_since(flicker.start_time).as_secs_f32();
+        let elapsed = Instant::now().duration_since(flash.start_time).as_secs_f32();
 
         // Split message into words
-        let words: Vec<&str> = flicker.text.split_whitespace().collect();
+        let words: Vec<&str> = flash.text.split_whitespace().collect();
         if words.is_empty() {
             return;
         }
@@ -657,7 +713,7 @@ let color = if elapsed < last_word_reveal_time {
         let color = Color32::from_rgba_unmultiplied(color.r(), color.g(), color.b(), alpha);
 
         // Make it BIG
-        let text_size = 78.0;
+        let text_size = 74.0;
         let font = FontId::proportional(text_size);
 
         let screen_rect = ctx.screen_rect();
@@ -712,123 +768,21 @@ let color = if elapsed < last_word_reveal_time {
 }
 
 
-// fn render_flash_text(&self, ctx: &egui::Context) {
-//     if let Some(ref flicker) = self.flicker_message {
-
-//         let bpm: f32 = 170.0;
-//         let beats_per_word: f32 = 2.0;
-//         let per_word_time = (60.0 / bpm) * beats_per_word;
-//         let time_held_on_screen: f32 = 1.0;
-//         let fade_out_time: f32 = 1.0;
-
-//         let elapsed = Instant::now().duration_since(flicker.start_time).as_secs_f32();
-
-//         // Split message into words
-//         let words: Vec<&str> = flicker.text.split_whitespace().collect();
-//         if words.is_empty() {
-//             return;
-//         }
-
-//         // Compute timing per word
-//         let total_duration = per_word_time * words.len() as f32;
-//         let full_display_time = total_duration + time_held_on_screen;
-
-//         // Determine visible word count
-//         let visible_count = (elapsed / per_word_time).ceil() as usize;
-
-//         // Stop rendering after total + hold
-//         if elapsed > full_display_time {
-//             return;
-//         }
-
-//         // Build visible text
-//         let visible_text = if visible_count == 0 {
-//             "".to_string()
-//         } else {
-//             words
-//                 .iter()
-//                 .take(visible_count.min(words.len()))
-//                 .cloned()
-//                 .collect::<Vec<_>>()
-//                 .join(" ")
-//         };
-
-//         if visible_text.is_empty() {
-//             return;
-//         }
-
-//         // 🌀 Dynamic psychedelic color animation
-//         let color_cycle_speed = 2.0; // Hz
-//         let t = elapsed * color_cycle_speed;
-//         let r = (t.sin() * 0.5 + 0.5) * 255.0;
-//         let g = ((t + 2.0).sin() * 0.5 + 0.5) * 255.0;
-//         let b = ((t + 4.0).sin() * 0.5 + 0.5) * 255.0;
-//         let color = Color32::from_rgb(r as u8, g as u8, b as u8);
-
-//         // 🧠 Make it BIG and flashy
-//         let text_size = 78.0;
-//         let font = FontId::proportional(text_size);
-
-//         let screen_rect = ctx.screen_rect();
-//         let painter = ctx.layer_painter(egui::LayerId::new(
-//             egui::Order::Tooltip,
-//             egui::Id::new("flash_text"),
-//         ));
-
-//         let galley = painter.layout_no_wrap(visible_text.clone(), font.clone(), color);
-
-//         let text_rect = Rect::from_min_size(
-//             Pos2::new(
-//                 screen_rect.center().x - galley.size().x / 2.0,
-//                 screen_rect.center().y - galley.size().y / 2.0,
-//             ),
-//             galley.size(),
-//         );
-
-//         // 🌈 Pulsing background
-//         let bg_pulse = ((elapsed * 3.0).sin() * 0.5 + 0.5) * 150.0 + 50.0;
-//         let bg_color = Color32::from_rgba_unmultiplied(
-//             (r * 0.3) as u8,
-//             (g * 0.3) as u8,
-//             (b * 0.3) as u8,
-//             bg_pulse as u8,
-//         );
-
-//         // Draw background box
-//         painter.rect_filled(text_rect.expand(60.0), 30.0, bg_color);
-
-//         // Draw shifting border
-//         painter.rect_stroke(
-//             text_rect.expand(60.0),
-//             30.0,
-//             Stroke::new(5.0, color),
-//         );
-
-//         // Draw animated text
-//         painter.text(
-//             text_rect.center(),
-//             egui::Align2::CENTER_CENTER,
-//             visible_text,
-//             font,
-//             color,
-//         );
-//     }
-// }
-
-
-
-
     fn render_flicker_message(&self, ctx: &egui::Context) {
         if let Some(ref flicker) = self.flicker_message {
             let elapsed = Instant::now().duration_since(flicker.start_time).as_secs_f32();
-            let flicker_frequency = 10.0; // Hz
+            let flicker_frequency = 100.0; // Hz
+
+            if elapsed > flicker.duration.as_secs_f32() {
+                return;
+            }
             
             // Create flickering effect
             if (elapsed * flicker_frequency).sin() > 0.0 {
                 let screen_rect = ctx.screen_rect();
                 let painter = ctx.layer_painter(egui::LayerId::new(egui::Order::Tooltip, egui::Id::new("flicker_message")));
                 
-                let text_size = 48.0;
+                let text_size = 76.0;
                 let font = FontId::proportional(text_size);
                 
                 // Calculate text size for centering
@@ -896,6 +850,7 @@ impl eframe::App for RocqVisualizer {
         self.render_tree_patterns(ctx);
         self.render_proof_text(ctx);
         self.render_flash_text(ctx);
+        self.render_flicker_message(ctx);
         
         // Request continuous repainting for animations
         ctx.request_repaint();

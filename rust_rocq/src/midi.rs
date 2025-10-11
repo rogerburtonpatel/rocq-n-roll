@@ -160,39 +160,76 @@ impl MidiOutput {
     }
 }
 
-// TODO redo this completely with deautomation. 
-// Tactic to (pitch, velocity) mapping
+
+// #[repr(u8)]
+// pub enum Pitch {
+//     C0  = 12,  Cs0 = 13,  D0  = 14,  Ds0 = 15,  E0  = 16,  F0  = 17,  Fs0 = 18,  G0  = 19,  Gs0 = 20,  A0  = 21,  As0 = 22,  B0  = 23,
+//     C1  = 24,  Cs1 = 25,  D1  = 26,  Ds1 = 27,  E1  = 28,  F1  = 29,  Fs1 = 30,  G1  = 31,  Gs1 = 32,  A1  = 33,  As1 = 34,  B1  = 35,
+//     C2  = 36,  Cs2 = 37,  D2  = 38,  Ds2 = 39,  E2  = 40,  F2  = 41,  Fs2 = 42,  G2  = 43,  Gs2 = 44,  A2  = 45,  As2 = 46,  B2  = 47,
+//     C3  = 48,  Cs3 = 49,  D3  = 50,  Ds3 = 51,  E3  = 52,  F3  = 53,  Fs3 = 54,  G3  = 55,  Gs3 = 56,  A3  = 57,  As3 = 58,  B3  = 59,
+//     C4  = 60,  Cs4 = 61,  D4  = 62,  Ds4 = 63,  E4  = 64,  F4  = 65,  Fs4 = 66,  G4  = 67,  Gs4 = 68,  A4  = 69,  As4 = 70,  B4  = 71,
+//     C5  = 72,  Cs5 = 73,  D5  = 74,  Ds5 = 75,  E5  = 76,  F5  = 77,  Fs5 = 78,  G5  = 79,  Gs5 = 80,  A5  = 81,  As5 = 82,  B5  = 83,
+//     C6  = 84,  Cs6 = 85,  D6  = 86,  Ds6 = 87,  E6  = 88,  F6  = 89,  Fs6 = 90,  G6  = 91,  Gs6 = 92,  A6  = 93,  As6 = 94,  B6  = 95,
+//     C7  = 96,  Cs7 = 97,  D7  = 98,  Ds7 = 99,  E7  = 100, F7  = 101, Fs7 = 102, G7  = 103, Gs7 = 104, A7  = 105, As7 = 106, B7  = 107,
+//     C8  = 108, Cs8 = 109, D8  = 110, Ds8 = 111, E8  = 112, F8  = 113, Fs8 = 114, G8  = 115, Gs8 = 116, A8  = 117, As8 = 118, B8  = 119,
+// }
+
+
+// TODO make this an enum as above
 pub fn create_tactic_midi_map() -> HashMap<&'static str, Note> {
     let mut map = HashMap::new();
     
-    // Basic tactics - fundamental notes
-    map.insert("reflexivity", (60, 100)); // C4 - strong, conclusive
-    map.insert("simpl", (67, 80));         // G4 - clean, bright
-    map.insert("intros", (64, 90));        // E4 - opening, welcoming
-    map.insert("apply", (69, 85));         // A4 - forward motion
-    map.insert("rewrite", (62, 75));       // D4 - transformative
-    map.insert("simple apply", (65,80)); 
+    map.insert("reflexivity", (60, 100));  // C4
+    map.insert("simpl", (67, 80));         // G4
+    map.insert("intros", (64, 90));        // E4
+    map.insert("intro", (64, 90));         // E4
+    map.insert("apply", (69, 85));         // A4
+    map.insert("eapply", (69, 85));        // A4
+    map.insert("rewrite", (62, 75));       // D4
+
+    map.insert("red", (43,80));            // G2
+    map.insert("cbn", (55,80));            // G3
+    map.insert("unfold", (58,80));         // Bb3
+    map.insert("symmetry", (88,80));       // E6
+    map.insert("assert", (43,80));         // G2
+    map.insert("remember", (50,80));       // D3
+    map.insert("subst", (100,80));         // E7
+    map.insert("refine", (62,80));         // D4
+    map.insert("exact", (64,80));          // E4 
+    map.insert("clear", (58,80));          // Bb3
+    map.insert("exists", (40,80));         // E2
+    map.insert("eexists", (39,80));        // Eb2
+    map.insert("discriminate", (73,80));   // Db5
+    map.insert("contradiction", (73,80));  // Db5
+    map.insert("easy", (99,80));           // Eb7
+    map.insert("constructor", (84,80));    // C6
+    map.insert("simple apply", (69,80));   // A4
+
+
     
     // Induction/recursion - deeper notes
-    map.insert("induction", (48, 110));    // C3 - deep, structural
-    map.insert("elim", (50, 100));         // D3 - breaking down
-    map.insert("destruct", (52, 95));      // E3 - analyzing
+    map.insert("induction", (48, 110));    // C3
+    map.insert("elim", (50, 100));         // D3
+    map.insert("destruct", (52, 95));      // E3
+    map.insert("inversion", (52, 95));     // E3
     
     // Advanced tactics - higher notes
-    map.insert("auto", (72, 70));          // C5 - automated, light
-    map.insert("tauto", (74, 75));         // D5 - logical clarity
-    map.insert("omega", (76, 65));         // E5 - arithmetic magic
+    map.insert("auto", (72, 70));          // C5
+    map.insert("tauto", (74, 75));         // D5
+    map.insert("omega", (76, 65));         // E5
+    map.insert("lia", (76,80));            // E5
     
     // Proof structure - special tones
-    map.insert("split", (65, 85));         // F4 - dividing
-    map.insert("left", (63, 80));          // D#4 - choosing left
-    map.insert("right", (68, 80));         // G#4 - choosing right
+    map.insert("split", (65, 85));         // F4 
+    map.insert("left", (63, 80));          // D#4
+    map.insert("right", (68, 80));         // G#4
     
     // Error/incomplete - dissonant
-    map.insert("admit", (42, 120));        // F#2 - low, ominous
-    map.insert("admitted", (42, 120));     // F#2 - same as admit
-    map.insert("sorry", (41, 127));        // F2 - even more dissonant
-    map.insert("abort", (43, 120));        // G2 - failed proof
+    map.insert("admit", (42, 120));        // Gb2
+    map.insert("admitted", (42, 120));     // Gb2
+    map.insert("shelve", (42, 120));       // Gb2
+    map.insert("sorry", (41, 127));        // F2 
+    map.insert("abort", (43, 120));        // G2 
 
     // Wrappers (no base note — handled dynamically)
     map.insert("try", (0, 0));

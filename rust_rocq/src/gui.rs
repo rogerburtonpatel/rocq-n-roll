@@ -356,9 +356,11 @@ fn spawn_tree_pattern(&mut self, ctx: &egui::Context, tactic_count: usize) {
                 rng.gen_range(100..255),
             );
         
+            let depth = tactic_count;
             let tree_life_duration = rng.gen_range(TREE_LIFETIME_MIN..TREE_LIFETIME_MAX);
             let tree = TreePattern {
-                branches: self.generate_tree_branches(origin, tactic_count.try_into().unwrap(), TREE_LENGTH, 0.0, tree_life_duration * 0.5, tactic_count),
+                branches: self.generate_tree_branches(origin, 
+                        depth, TREE_LENGTH, 0.0, tree_life_duration * 0.5, tactic_count),
                 color,
                 birth_time: Instant::now(),
                 life_duration: Duration::from_secs_f32(tree_life_duration),
@@ -374,7 +376,7 @@ fn spawn_tree_pattern(&mut self, ctx: &egui::Context, tactic_count: usize) {
 fn generate_tree_branches(
     &self,
     start: Pos2,
-    depth: u32,
+    depth: usize,
     length: f32,
     t0: f32,
     duration: f32,

@@ -476,8 +476,10 @@ fn generate_tree_branches(
         let color = if snapshot.shelved_count > 0 {
             Color32::from_rgb(220, 60, 60)
         } else if snapshot.goals_count > 0 {
+            println!("HERE");
             Color32::from_rgb(220, 200, 0)
         } else {
+            println!("HERE2");
             Color32::from_rgb(120, 220, 120)
         };
 
@@ -630,6 +632,15 @@ fn draw_branch_partial(
         (branch.start.y + branch.end.y) / 2.0 - (branch.end.x - branch.start.x) * 0.2,
     );
 
+    let color = 
+    branch.color;
+    // match &self.proof_state.current_proof_state {
+    //     Some(s) if s.goals_count > 0 =>
+    //      Color32::from_rgb(220, 200, 0),
+    //     | _ => 
+    //     branch.color
+    // };
+
     let steps = 8;
     for i in 0..steps {
         let t0 = (i as f32 / steps as f32) * branch_growth;
@@ -638,7 +649,7 @@ fn draw_branch_partial(
         let p0 = quadratic_bezier(branch.start, mid, branch.end, t0);
         let p1 = quadratic_bezier(branch.start, mid, branch.end, t1);
 
-        painter.line_segment([p0, p1], Stroke::new(branch.thickness, branch.color.linear_multiply(alpha)));
+        painter.line_segment([p0, p1], Stroke::new(branch.thickness, color.linear_multiply(alpha)));
     }
 
     for child in &branch.children {

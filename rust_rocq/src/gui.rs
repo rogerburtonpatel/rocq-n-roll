@@ -23,7 +23,7 @@ const PROOF_LINE_DEFAULT_COLOR   : (u8, u8, u8) = (200, 200, 200);
 
 // Adjust the size of gui trees. 
 const TREE_LENGTH : f32 = 300.0;
-const TREE_DEPTH  : u32 = 50;
+const TREE_DEPTH  : u32 = 10;
 
 
 // Begin Randomized Value Parameters // 
@@ -34,16 +34,17 @@ const TREE_DEPTH  : u32 = 50;
 // Make them equal to set a static characteristic of a tree. 
 
 // Adjust the display lifetime of a tree before it dissapears. 
-const TREE_LIFETIME_MIN: f32 = 3.0;
-const TREE_LIFETIME_MAX: f32 = 6.0;
+const TREE_LIFETIME_MIN: f32 = 2.0;
+const TREE_LIFETIME_MAX: f32 = 3.5;
 
 // Adjust the number of branches a tree might have. 
-const MIN_TREE_BRANCHES: i32 = 2;
-const MAX_TREE_BRANCHES: i32 = 5;
+const MIN_TREE_BRANCHES: i32 = 1;
+const MAX_TREE_BRANCHES: i32 = 3;
 
 // Adjust the branch length of a tree. 
-const MIN_BRANCH_LENGTH: f32 = 0.6;
-const MAX_BRANCH_LENGTH: f32 = 0.9;
+const MIN_BRANCH_LENGTH: f32 = 0.7;
+const MAX_BRANCH_LENGTH: f32 = 1.0;
+
 
 // End Randomized Value Parameters // 
 
@@ -51,10 +52,10 @@ const MAX_BRANCH_LENGTH: f32 = 0.9;
 // These values are all relative to the width of the screen. 
 // E.g. a MIN_TREE_START_X of 0.03 means a tree can start no further left 
 // than 0.03 screen-widths from the leftmost screen border. 
-const MIN_TREE_START_X: f32 = 0.03;
-const MAX_TREE_START_X: f32 = 0.9;
-const MIN_TREE_START_Y: f32 = 0.03;
-const MAX_TREE_START_Y: f32 = 0.9;
+const MIN_TREE_START_X: f32 = 0.25;
+const MAX_TREE_START_X: f32 = 0.75;
+const MIN_TREE_START_Y: f32 = 0.25;
+const MAX_TREE_START_Y: f32 = 0.75;
 
 // Adjust how small trees can get, and how much to reduce branches on each 
 // recursive call to generate_tree_branches. 
@@ -76,12 +77,16 @@ struct TreePattern {
 }
 
 #[derive(Clone)]
-struct Branch {
-    start: Pos2,
-    end: Pos2,
-    thickness: f32,
-    children: Vec<Branch>,
+pub struct Branch {
+    pub start: Pos2,
+    pub end: Pos2,
+    pub thickness: f32,
+    pub children: Vec<Branch>,
+    pub start_time: f32,
+    pub end_time: f32,
+    pub color: Color32, // new: branch color based on goal status
 }
+
 
 #[derive(Clone)]
 struct FlickerMessage {
@@ -128,20 +133,15 @@ impl RocqVisualizer {
                     egui::Key::ArrowDown | egui::Key::Enter => {
                         if self.proof_state.current_step < self.proof_state.proof_lines.len() {
 
-                            self.spawn_tree_pattern(ctx);
-                            
-
                             // todo tree pattern based on goals
                             // todo show goals in gui
                             {
-                                let state: &mut ProofStepperState = &mut self.proof_state;
-
-                                let (line_num, line_text) = state.get_current_tactic().map(|(n, t)| (*n, t.clone())).unwrap_or((0, String::new()));
-                                debug!("\nExecuting step {}/{}...", state.current_step + 1, state.total_steps);
+                                let (line_num, line_text) = self.proof_state.get_current_tactic().map(|(n, t)| (*n, t.clone())).unwrap_or((0, String::new()));
+                                debug!("\nExecuting step {}/{}...", self.proof_state.current_step + 1, self.proof_state.total_steps);
 
                              // Send vscoq/interpretToPoint request
-                                    if let Err(e) = state.vscoq_lsp.interpret_to_point(
-                                            state.document_uri.clone(), 
+                                    if let Err(e) = self.proof_state.vscoq_lsp.interpret_to_point(
+                                            self.proof_state.document_uri.clone(), 
                                             JSON_VERSION, 
                                             line_num, 
                                             MAX_LINE_LENGTH) {
@@ -154,7 +154,7 @@ impl RocqVisualizer {
                                 let mut found_proof_view = false;
 
                                 while timeout.elapsed() < Duration::from_secs(2) {
-                                    if let Some(msg) = state.vscoq_lsp.recv(Duration::from_millis(100)) {
+                                    if let Some(msg) = self.proof_state.vscoq_lsp.recv(Duration::from_millis(100)) {
 
                                         debug!("Received message: {:#?}", msg);
 
@@ -185,14 +185,14 @@ impl RocqVisualizer {
                                                              goals_count, shelved_count, unfocused_count);
                                                 }
 
-                                                state.last_goals_state = params.clone();
+                                                self.proof_state.last_goals_state = params.clone();
 
                                                 // Update proof state snapshots for diff tracking
-                                                state.previous_proof_state = state.current_proof_state.clone();
-                                                state.current_proof_state = Some(ProofStateSnapshot::from_proof_view(params));
+                                                self.proof_state.previous_proof_state = self.proof_state.current_proof_state.clone();
+                                                self.proof_state.current_proof_state = Some(ProofStateSnapshot::from_proof_view(params));
 
                                                 // Print stored goals from snapshot
-                                                if let Some(snapshot) = &state.current_proof_state {
+                                                if let Some(snapshot) = &self.proof_state.current_proof_state {
                                                     if !snapshot.goals.is_empty() {
                                                         debug!("[STORED] Snapshot contains {} goal(s):", snapshot.goals.len());
                                                         for (i, goal) in snapshot.goals.iter().enumerate() {
@@ -239,12 +239,18 @@ impl RocqVisualizer {
                                                 }
 
                                                 debug!("[PARSE] Final tactics to send: {:?}", tactics_to_send);
+                                                
+                                                
+                                                // here be trees
+                                                self.spawn_tree_pattern(ctx, tactics_to_send.len());
+
+
 
                                                 // Stop previous notes so OP-1 retriggers (comment this line to undo)
-                                                state.midi_output.stop_all_notes(None);
+                                                self.proof_state.midi_output.stop_all_notes(None);
 
                                                 // Create proof state diff if we have previous state
-                                                let proof_diff = if let (Some(prev), Some(curr)) = (&state.previous_proof_state, &state.current_proof_state) {
+                                                let proof_diff = if let (Some(prev), Some(curr)) = (&self.proof_state.previous_proof_state, &self.proof_state.current_proof_state) {
                                                     Some(ProofStateDiff {
                                                         prev_goals: prev.goals_count,
                                                         prev_shelved: prev.shelved_count,
@@ -252,8 +258,8 @@ impl RocqVisualizer {
                                                         curr_goals: curr.goals_count,
                                                         curr_shelved: curr.shelved_count,
                                                         curr_unfocused: curr.unfocused_count,
-                                                        step_number: state.current_step + 1,
-                                                        total_steps: state.total_steps,
+                                                        step_number: self.proof_state.current_step + 1,
+                                                        total_steps: self.proof_state.total_steps,
                                                         prev_goals_list: prev.goals.clone(),
                                                         curr_goals_list: curr.goals.clone(),
                                                     })
@@ -271,7 +277,7 @@ impl RocqVisualizer {
                                                 // Send each tactic to MIDI
                                                 for tactic in tactics_to_send {
                                                     println!("[MIDI] Sending to MIDI: '{}'", tactic);
-                                                    process_tactic_to_midi_with_proof_state(&state.midi_output, &tactic, params,
+                                                    process_tactic_to_midi_with_proof_state(&self.proof_state.midi_output, &tactic, params,
                                                         MIDI_NOTE_DURATION_DEFAULT,
                                                         proof_diff.clone());
                                                     thread::sleep(arpeggiation_sleep);
@@ -300,13 +306,13 @@ impl RocqVisualizer {
                         self.show_flicker_message("THEY RENAMED COQ SO WE COULD ROCQ".to_string());
                     }
                     egui::Key::S => {
-                        self.show_flicker_message("RAISE THE (P)ROOF".to_string());
+                        self.show_flicker_message("RAISE THE PROOF".to_string());
                     }
                     egui::Key::D => {
                         self.show_flicker_message("THE SOUND OF SOUNDNESS".to_string());
                     }
                     egui::Key::F => {
-                        self.show_flicker_message("Frank Pfenning".to_string());
+                        self.show_flicker_message("LEO DE MOURA".to_string());
                     }
                     egui::Key::Escape => {
                             if let Err(e) = self.proof_state.vscoq_lsp.close_document(&self.proof_state.document_uri) {
@@ -332,68 +338,107 @@ impl RocqVisualizer {
         });
     }
 
-    fn spawn_tree_pattern(&mut self, ctx: &egui::Context) {
-        let screen_rect = ctx.screen_rect();
-        let mut rng = rand::thread_rng();
-        
-       
-        let origin = Pos2::new(
-            rng.gen_range(screen_rect.width()  * MIN_TREE_START_X..screen_rect.width()  * MAX_TREE_START_X),
-            rng.gen_range(screen_rect.height() * MIN_TREE_START_Y..screen_rect.height() * MAX_TREE_START_Y),
-        );
-        
-        let color = Color32::from_rgb(
-            rng.gen_range(100..255),
-            rng.gen_range(100..255),
-            rng.gen_range(100..255),
-        );
-        
+fn spawn_tree_pattern(&mut self, ctx: &egui::Context, tactic_count: usize) {
+    let screen_rect = ctx.screen_rect();
+    let mut rng = rand::thread_rng();
 
-        let tree_life_duration = rng.gen_range(TREE_LIFETIME_MIN..TREE_LIFETIME_MAX);
-        
-        let tree = TreePattern {
-            branches: self.generate_tree_branches(origin, TREE_DEPTH, TREE_LENGTH),
-            color,
-            birth_time: Instant::now(),
-            life_duration: Duration::from_secs_f32(tree_life_duration),
-        };
-        
-        self.tree_patterns.push(tree);
-    }
-
-    fn generate_tree_branches(&self, start: Pos2, depth: u32, length: f32) -> Vec<Branch> {
-        if depth == 0 || length < MIN_TREE_BRANCH_LENGTH {
-            return Vec::new();
-        }
-        
-        let mut rng = rand::thread_rng();
-        let mut branches = Vec::new();
-        
-
-        let num_branches = rng.gen_range(MIN_TREE_BRANCHES..MAX_TREE_BRANCHES);
-        
-        for _ in 0..num_branches {
-            let angle = rng.gen_range(0.0..std::f32::consts::TAU);
-
-            let branch_length = length * rng.gen_range(MIN_BRANCH_LENGTH..MAX_BRANCH_LENGTH);
-            
-            let end = Pos2::new(
-                start.x + angle.cos() * branch_length,
-                start.y + angle.sin() * branch_length,
+    
+    if let Some(s) = &self.proof_state.current_proof_state {
+        for _ in 0..s.goals_count.max(1) {
+            let origin = Pos2::new(
+                rng.gen_range(screen_rect.width() * MIN_TREE_START_X..screen_rect.width() * MAX_TREE_START_X),
+                rng.gen_range(screen_rect.height() * MIN_TREE_START_Y..screen_rect.height() * MAX_TREE_START_Y),
             );
-            
-            let children = self.generate_tree_branches(end, depth - 1, branch_length * 0.8);
-            
-            branches.push(Branch {
-                start,
-                end,
-                thickness: length * TREE_BRANCH_REDUCTION_FACTOR,
-                children,
-            });
-        }
         
-        branches
+            let color = Color32::from_rgb(
+                rng.gen_range(100..255),
+                rng.gen_range(100..255),
+                rng.gen_range(100..255),
+            );
+        
+            let tree_life_duration = rng.gen_range(TREE_LIFETIME_MIN..TREE_LIFETIME_MAX);
+            let tree = TreePattern {
+                branches: self.generate_tree_branches(origin, tactic_count.try_into().unwrap(), TREE_LENGTH, 0.0, tree_life_duration * 0.5, tactic_count),
+                color,
+                birth_time: Instant::now(),
+                life_duration: Duration::from_secs_f32(tree_life_duration),
+            };
+            self.tree_patterns.push(tree);
+        }
     }
+
+
+}
+
+
+fn generate_tree_branches(
+    &self,
+    start: Pos2,
+    depth: u32,
+    length: f32,
+    t0: f32,
+    duration: f32,
+    tactic_count: usize,
+) -> Vec<Branch> {
+    if depth == 0 || length < MIN_TREE_BRANCH_LENGTH {
+        return Vec::new();
+    }
+
+    let snapshot = match &self.proof_state.current_proof_state {
+        Some(s) => s,
+        None => return Vec::new(),
+    };
+
+    let mut branches = Vec::new();
+    let mut rng = rand::thread_rng();
+
+    // Number of branches depends on tactic_count now
+    let num_branches = tactic_count.max(1) as i32;
+    let num_branches = num_branches.clamp(MIN_TREE_BRANCHES, MAX_TREE_BRANCHES);
+
+    for i in 0..num_branches {
+        let angle_offset = (i as f32 / num_branches as f32 - 0.5) * std::f32::consts::PI / 2.0;
+        let base_angle = rng.gen_range(0.0..std::f32::consts::TAU);
+        let angle = base_angle + angle_offset;
+
+        let branch_length = length * rng.gen_range(MIN_BRANCH_LENGTH..MAX_BRANCH_LENGTH)
+            + tactic_count as f32 * 2.0;
+
+        let end = Pos2::new(
+            start.x + angle.cos() * branch_length,
+            start.y + angle.sin() * branch_length,
+        );
+
+        let child_t0 = t0 + (i as f32 / num_branches as f32) * duration;
+        let child_duration = duration * 0.6;
+
+        let children = self.generate_tree_branches(end, depth - 1, length * 0.7, child_t0, child_duration, tactic_count);
+
+        // Determine color based on proof snapshot
+        let color = if snapshot.shelved_count > 0 {
+            Color32::from_rgb(220, 60, 60)
+        } else if snapshot.goals_count > 0 {
+            Color32::from_rgb(220, 200, 0)
+        } else {
+            Color32::from_rgb(120, 220, 120)
+        };
+
+        branches.push(Branch {
+            start,
+            end,
+            thickness: length * TREE_BRANCH_REDUCTION_FACTOR,
+            children,
+            start_time: t0,
+            end_time: t0 + duration,
+            color,
+        });
+    }
+
+    branches
+}
+
+
+
 
     fn draw_branch(&self, painter: &egui::Painter, branch: &Branch, alpha: f32, base_color: Color32) {
         let color = Color32::from_rgba_premultiplied(
@@ -422,11 +467,11 @@ impl RocqVisualizer {
         });
         
         // Remove expired flicker message
-        if let Some(ref flicker) = self.flicker_message {
-            if now.duration_since(flicker.start_time) > flicker.duration {
-                self.flicker_message = None;
-            }
-        }
+        // if let Some(ref flicker) = self.flicker_message {
+        //     if now.duration_since(flicker.start_time) > flicker.duration {
+        //         self.flicker_message = None;
+        //     }
+        // }
     }
 
 fn render_proof_text(&self, ctx: &egui::Context) {
@@ -483,28 +528,293 @@ fn render_proof_text(&self, ctx: &egui::Context) {
 }
 
 
-    fn render_tree_patterns(&self, ctx: &egui::Context) {
-        let painter = ctx.layer_painter(egui::LayerId::new(egui::Order::Background, egui::Id::new("tree_patterns")));
-        let now = Instant::now();
-        
-        for tree in &self.tree_patterns {
-            let elapsed = now.duration_since(tree.birth_time).as_secs_f32();
-            let life_ratio = elapsed / tree.life_duration.as_secs_f32();
-            
-            // Fade in and out
-            let alpha = if life_ratio < 0.2 {
-                life_ratio / 0.2 // Fade in
-            } else if life_ratio > 0.8 {
-                (1.0 - life_ratio) / 0.2 // Fade out
-            } else {
-                1.0
-            };
-            
-            for branch in &tree.branches {
-                self.draw_branch(&painter, branch, alpha, tree.color);
-            }
+fn render_tree_patterns(&self, ctx: &egui::Context) {
+    let painter = ctx.layer_painter(egui::LayerId::new(egui::Order::Background, egui::Id::new("tree_patterns")));
+    let now = Instant::now();
+
+    for tree in &self.tree_patterns {
+        let elapsed = now.duration_since(tree.birth_time).as_secs_f32();
+        let life_ratio = (elapsed / tree.life_duration.as_secs_f32()).clamp(0.0, 1.0);
+
+        let alpha = if life_ratio < 0.2 {
+            life_ratio / 0.2
+        } else if life_ratio > 0.8 {
+            (1.0 - life_ratio) / 0.2
+        } else {
+            1.0
+        };
+
+        for branch in &tree.branches {
+            self.draw_branch_partial(&painter, branch, elapsed, alpha);
         }
     }
+}
+
+
+
+fn draw_branch_partial(
+    &self,
+    painter: &egui::Painter,
+    branch: &Branch,
+    tree_elapsed: f32,
+    alpha: f32,
+) {
+    let branch_growth = ((tree_elapsed - branch.start_time) / (branch.end_time - branch.start_time))
+        .clamp(0.0, 1.0);
+
+    if branch_growth <= 0.0 {
+        return;
+    }
+
+    // Control point for curve (adds slight randomness)
+    let mid = Pos2::new(
+        (branch.start.x + branch.end.x) / 2.0 + (branch.end.y - branch.start.y) * 0.2,
+        (branch.start.y + branch.end.y) / 2.0 - (branch.end.x - branch.start.x) * 0.2,
+    );
+
+    let steps = 8;
+    for i in 0..steps {
+        let t0 = (i as f32 / steps as f32) * branch_growth;
+        let t1 = ((i + 1) as f32 / steps as f32) * branch_growth;
+
+        let p0 = quadratic_bezier(branch.start, mid, branch.end, t0);
+        let p1 = quadratic_bezier(branch.start, mid, branch.end, t1);
+
+        painter.line_segment([p0, p1], Stroke::new(branch.thickness, branch.color.linear_multiply(alpha)));
+    }
+
+    for child in &branch.children {
+        self.draw_branch_partial(painter, child, tree_elapsed, alpha);
+    }
+}
+
+
+fn render_flash_text(&self, ctx: &egui::Context) {
+    if let Some(ref flicker) = self.flicker_message {
+        // 🔧 Controls
+        let bpm: f32 = 170.0;
+        let beats_per_word: f32 = 2.0;
+        let per_word_time = (60.0 / bpm) * beats_per_word;
+        let time_held_on_screen: f32 = 1.5;
+        let fade_out_time: f32 = 1.0;
+
+        let elapsed = Instant::now().duration_since(flicker.start_time).as_secs_f32();
+
+        // Split message into words
+        let words: Vec<&str> = flicker.text.split_whitespace().collect();
+        if words.is_empty() {
+            return;
+        }
+
+        // Calculate timing
+        let total_reveal_time = words.len() as f32 * per_word_time;
+        let full_display_time = total_reveal_time + time_held_on_screen;
+        let total_lifetime = full_display_time + fade_out_time;
+
+        // Stop rendering entirely after fade-out
+        if elapsed > total_lifetime {
+            return;
+        }
+
+        // Determine how many words should currently be visible (precise timing)
+        let mut visible_count = (elapsed / per_word_time).floor() as usize + 1;
+        visible_count = visible_count.min(words.len());
+
+        // Build visible text
+        let visible_text = words[..visible_count].join(" ");
+        if visible_text.is_empty() {
+            return;
+        }
+
+   // 🎨 Color cycling
+let last_word_reveal_time = (words.len() - 1) as f32 * per_word_time;
+let color = if elapsed < last_word_reveal_time {
+    // normal slow cycle during reveal
+    let t = elapsed * 2.0; // slow
+    let r = (t.sin() * 0.5 + 0.5) * 255.0;
+    let g = ((t + 2.0).sin() * 0.5 + 0.5) * 255.0;
+    let b = ((t + 4.0).sin() * 0.5 + 0.5) * 255.0;
+    Color32::from_rgba_unmultiplied(r as u8, g as u8, b as u8, 255)
+} else {
+    // beat-drop fast color cycle - starts exactly when last word appears
+    let fast_t = elapsed * 20.0; // super fast
+    let r = (fast_t.sin() * 0.5 + 0.5) * 255.0;
+    let g = ((fast_t + 2.0).sin() * 0.5 + 0.5) * 255.0;
+    let b = ((fast_t + 4.0).sin() * 0.5 + 0.5) * 255.0;
+    Color32::from_rgba_unmultiplied(r as u8, g as u8, b as u8, 255)
+};
+
+        // ✨ Smooth fade out after hold time
+        let alpha_factor = if elapsed > full_display_time {
+            let fade_elapsed = elapsed - full_display_time;
+            (1.0 - fade_elapsed / fade_out_time).clamp(0.0, 1.0)
+        } else {
+            1.0
+        };
+        let alpha = (255.0 * alpha_factor) as u8;
+        let color = Color32::from_rgba_unmultiplied(color.r(), color.g(), color.b(), alpha);
+
+        // Make it BIG
+        let text_size = 78.0;
+        let font = FontId::proportional(text_size);
+
+        let screen_rect = ctx.screen_rect();
+        let painter = ctx.layer_painter(egui::LayerId::new(
+            egui::Order::Tooltip,
+            egui::Id::new("flash_text"),
+        ));
+
+        let galley = painter.layout_no_wrap(visible_text.clone(), font.clone(), color);
+
+        let text_rect = Rect::from_min_size(
+            Pos2::new(
+                screen_rect.center().x - galley.size().x / 2.0,
+                screen_rect.center().y - galley.size().y / 2.0,
+            ),
+            galley.size(),
+        );
+
+        // 🌈 Background pulse
+        let bg_pulse = ((elapsed * 3.0).sin() * 0.5 + 0.5) * 150.0 + 50.0;
+        let bg_color = Color32::from_rgba_unmultiplied(
+            (color.r() as f32 * 0.3) as u8,
+            (color.g() as f32 * 0.3) as u8,
+            (color.b() as f32 * 0.3) as u8,
+            (bg_pulse as u8).saturating_mul((alpha_factor * 255.0) as u8 / 255),
+        );
+
+        // Draw background box
+        painter.rect_filled(text_rect.expand(60.0), 30.0, bg_color);
+
+        // Draw shifting border
+        painter.rect_stroke(
+            text_rect.expand(60.0),
+            30.0,
+            Stroke::new(5.0, color),
+        );
+
+        // Draw animated text
+        painter.text(
+            text_rect.center(),
+            egui::Align2::CENTER_CENTER,
+            visible_text,
+            font,
+            color,
+        );
+
+                // Request repaint for smooth animation
+        if elapsed < total_lifetime {
+            ctx.request_repaint();
+        }
+    }
+}
+
+
+// fn render_flash_text(&self, ctx: &egui::Context) {
+//     if let Some(ref flicker) = self.flicker_message {
+
+//         let bpm: f32 = 170.0;
+//         let beats_per_word: f32 = 2.0;
+//         let per_word_time = (60.0 / bpm) * beats_per_word;
+//         let time_held_on_screen: f32 = 1.0;
+//         let fade_out_time: f32 = 1.0;
+
+//         let elapsed = Instant::now().duration_since(flicker.start_time).as_secs_f32();
+
+//         // Split message into words
+//         let words: Vec<&str> = flicker.text.split_whitespace().collect();
+//         if words.is_empty() {
+//             return;
+//         }
+
+//         // Compute timing per word
+//         let total_duration = per_word_time * words.len() as f32;
+//         let full_display_time = total_duration + time_held_on_screen;
+
+//         // Determine visible word count
+//         let visible_count = (elapsed / per_word_time).ceil() as usize;
+
+//         // Stop rendering after total + hold
+//         if elapsed > full_display_time {
+//             return;
+//         }
+
+//         // Build visible text
+//         let visible_text = if visible_count == 0 {
+//             "".to_string()
+//         } else {
+//             words
+//                 .iter()
+//                 .take(visible_count.min(words.len()))
+//                 .cloned()
+//                 .collect::<Vec<_>>()
+//                 .join(" ")
+//         };
+
+//         if visible_text.is_empty() {
+//             return;
+//         }
+
+//         // 🌀 Dynamic psychedelic color animation
+//         let color_cycle_speed = 2.0; // Hz
+//         let t = elapsed * color_cycle_speed;
+//         let r = (t.sin() * 0.5 + 0.5) * 255.0;
+//         let g = ((t + 2.0).sin() * 0.5 + 0.5) * 255.0;
+//         let b = ((t + 4.0).sin() * 0.5 + 0.5) * 255.0;
+//         let color = Color32::from_rgb(r as u8, g as u8, b as u8);
+
+//         // 🧠 Make it BIG and flashy
+//         let text_size = 78.0;
+//         let font = FontId::proportional(text_size);
+
+//         let screen_rect = ctx.screen_rect();
+//         let painter = ctx.layer_painter(egui::LayerId::new(
+//             egui::Order::Tooltip,
+//             egui::Id::new("flash_text"),
+//         ));
+
+//         let galley = painter.layout_no_wrap(visible_text.clone(), font.clone(), color);
+
+//         let text_rect = Rect::from_min_size(
+//             Pos2::new(
+//                 screen_rect.center().x - galley.size().x / 2.0,
+//                 screen_rect.center().y - galley.size().y / 2.0,
+//             ),
+//             galley.size(),
+//         );
+
+//         // 🌈 Pulsing background
+//         let bg_pulse = ((elapsed * 3.0).sin() * 0.5 + 0.5) * 150.0 + 50.0;
+//         let bg_color = Color32::from_rgba_unmultiplied(
+//             (r * 0.3) as u8,
+//             (g * 0.3) as u8,
+//             (b * 0.3) as u8,
+//             bg_pulse as u8,
+//         );
+
+//         // Draw background box
+//         painter.rect_filled(text_rect.expand(60.0), 30.0, bg_color);
+
+//         // Draw shifting border
+//         painter.rect_stroke(
+//             text_rect.expand(60.0),
+//             30.0,
+//             Stroke::new(5.0, color),
+//         );
+
+//         // Draw animated text
+//         painter.text(
+//             text_rect.center(),
+//             egui::Align2::CENTER_CENTER,
+//             visible_text,
+//             font,
+//             color,
+//         );
+//     }
+// }
+
+
+
 
     fn render_flicker_message(&self, ctx: &egui::Context) {
         if let Some(ref flicker) = self.flicker_message {
@@ -583,7 +893,7 @@ impl eframe::App for RocqVisualizer {
         // Render all visual elements
         self.render_tree_patterns(ctx);
         self.render_proof_text(ctx);
-        self.render_flicker_message(ctx);
+        self.render_flash_text(ctx);
         
         // Request continuous repainting for animations
         ctx.request_repaint();
@@ -605,5 +915,13 @@ pub fn run_with_gui(proof_state: ProofStepperState) -> Result<(), eframe::Error>
         "Rocq Proof Visualizer",
         options,
         Box::new(|cc| Box::new(RocqVisualizer::new(proof_state, cc))),
+    )
+}
+
+fn quadratic_bezier(p0: Pos2, p1: Pos2, p2: Pos2, t: f32) -> Pos2 {
+    let u = 1.0 - t;
+    Pos2::new(
+        u * u * p0.x + 2.0 * u * t * p1.x + t * t * p2.x,
+        u * u * p0.y + 2.0 * u * t * p1.y + t * t * p2.y,
     )
 }

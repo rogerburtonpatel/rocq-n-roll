@@ -642,9 +642,9 @@ pub fn extract_proof_steps(coq_content: &str) -> Vec<(usize, String)> {
         }
 
         // Only collect steps that are inside proofs
-        if in_proof && !trimmed.is_empty() {
+        // if in_proof && !trimmed.is_empty() {
             proof_steps.push((line_num, trimmed.to_string()));
-        }
+        // }
     }
 
     proof_steps

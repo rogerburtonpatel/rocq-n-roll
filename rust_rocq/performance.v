@@ -12,8 +12,7 @@ Qed.
 
 Theorem semicolon_simpl : forall n : nat, 0 + n = n.
 Proof.
-    intros; simpl; 
-    reflexivity.
+    intros; simpl; reflexivity.
 Qed.
 
 Theorem auto_add : forall n : nat, 0 + n = n.
@@ -24,6 +23,7 @@ Qed.
 Theorem split_auto : forall n : nat, n + 0 = n /\ 0 + n = n.
 Proof.   
   split. 
-  - rewrite add_0_r. 
+  - rewrite Nat.add_0_r. 
+    reflexivity. 
   - auto. 
 Qed.

@@ -89,6 +89,11 @@ pub struct Branch {
 
 
 #[derive(Clone)]
+struct BoldMessage {
+    text: String,
+    start_time: Instant,
+    duration: Duration,
+}
 struct FlickerMessage {
     text: String,
     start_time: Instant,
@@ -105,6 +110,7 @@ pub struct RocqVisualizer {
     // Visual effects
     tree_patterns: Vec<TreePattern>,
     flicker_message: Option<FlickerMessage>,
+    bold_message: Option<BoldMessage>,
     flash_message: Option<FlickerMessage>,
     
     // Input handling
@@ -118,6 +124,7 @@ impl RocqVisualizer {
             visible_lines: VISIBLE_PROOF_LINES,
             tree_patterns: Vec::new(),
             flicker_message: None,
+            bold_message: None,
             flash_message: None,
             last_frame_keys: std::collections::HashSet::new(),
             proof_state: proof_state,
@@ -326,39 +333,43 @@ impl RocqVisualizer {
 
 
                     egui::Key::Num1 => {
-                        self.show_flicker_message("WELCOME TO ROCQNROLL.".to_string());
+                        self.show_bold_message("WELCOME TO ROCQNROLL.".to_string());
                     }
 
                     egui::Key::Num2 => {
-                        self.show_flicker_message("WE JAM WITH OUR PROOFS HERE.".to_string());
+                        self.show_bold_message("WE JAM WITH OUR PROOFS HERE.".to_string());
                     }
 
                     egui::Key::Num3 => {
-                        self.show_flicker_message("TACTICS MAKE NOTES.".to_string());
+                        self.show_bold_message("TACTICS MAKE NOTES.".to_string());
                     }
 
                     egui::Key::Num4 => {
-                        self.show_flicker_message("SEMICOLON MAKES CHORDS.".to_string());
+                        self.show_bold_message("SEMICOLON MAKES CHORDS.".to_string());
                     }
 
                     egui::Key::Num5 => {
-                        self.show_flicker_message("AUTO MAKES SEQUENCES.".to_string());
+                        self.show_bold_message("AUTO MAKES SEQUENCES.".to_string());
                     }
 
                     egui::Key::Num6 => {
-                        self.show_flicker_message("MORE GOALS MAKES MORE MUSIC.".to_string());
+                        self.show_bold_message("MORE GOALS MAKES MORE MUSIC.".to_string());
+                    }
+
+                    egui::Key::B => {
+                        self.show_bold_message("FAILURE TO PROVE IS FAILURE TO HARMOIZE.".to_string());
                     }
 
                     egui::Key::Num7 => {
-                        self.show_flicker_message("THAT WAS FUN.".to_string());
+                        self.show_bold_message("THAT WAS FUN.".to_string());
                     }
 
                     egui::Key::Num8 => {
-                        self.show_flicker_message("LET'S PLAY ANOTHER SHORT EXAMPLE.".to_string());
+                        self.show_bold_message("LET'S PLAY ANOTHER SHORT EXAMPLE.".to_string());
                     }
 
                     egui::Key::Num9 => {
-                        self.show_flicker_message("HOW ABOUT".to_string());
+                        self.show_bold_message("HOW ABOUT".to_string());
                     }
 
                     egui::Key::Num0 => {
@@ -383,6 +394,13 @@ impl RocqVisualizer {
         self.last_frame_keys = current_keys;
     }
 
+    fn show_bold_message(&mut self, text: String) {
+        self.bold_message = Some(BoldMessage {
+            text,
+            start_time: Instant::now(),
+            duration: Duration::from_millis(2500)
+        });
+    }
     
     fn show_flicker_message(&mut self, text: String) {
         self.flicker_message = Some(FlickerMessage {
@@ -960,7 +978,66 @@ let color = if elapsed < last_word_reveal_time {
             }
         }
     }
+
+fn render_bold_message(&self, ctx: &egui::Context) {
+ if let Some(ref message) = self.bold_message {
+            let elapsed = Instant::now().duration_since(message.start_time).as_secs_f32();
+
+            if elapsed > message.duration.as_secs_f32() {
+                return;
+            }
+
+    let elapsed = Instant::now().duration_since(message.start_time).as_secs_f32();
+    if elapsed > message.duration.as_secs_f32() {
+        return; // message expired
+    }
+
+    let screen_rect = ctx.screen_rect();
+    let painter = ctx.layer_painter(egui::LayerId::new(
+        egui::Order::Foreground,
+        egui::Id::new("bold_message"),
+    ));
+
+    let text_size = 76.0;
+    let font = FontId::proportional(text_size);
+
+    // Calculate text size for centering
+    let galley = painter.layout_no_wrap(message.text.clone(), font.clone(), Color32::WHITE);
+
+    let text_rect = Rect::from_min_size(
+        Pos2::new(
+            screen_rect.center().x - galley.size().x / 2.0,
+            screen_rect.center().y - galley.size().y / 2.0,
+        ),
+        galley.size(),
+    );
+
+    // Draw background box
+    painter.rect_filled(
+        text_rect.expand(20.0),
+        10.0,
+        Color32::from_rgba_unmultiplied(0, 0, 0, 200),
+    );
+
+    painter.rect_stroke(
+        text_rect.expand(20.0),
+        10.0,
+        Stroke::new(2.0, Color32::WHITE),
+    );
+
+    // Draw text
+    painter.text(
+        text_rect.center(),
+        egui::Align2::CENTER_CENTER,
+        &message.text,
+        font,
+        Color32::WHITE,
+    );
+    }
 }
+}
+
+
 
 impl eframe::App for RocqVisualizer {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
@@ -993,6 +1070,7 @@ impl eframe::App for RocqVisualizer {
         });
         self.render_flash_text(ctx);
         self.render_flicker_message(ctx);
+        self.render_bold_message(ctx);
         
         // Request continuous repainting for animations
         ctx.request_repaint();

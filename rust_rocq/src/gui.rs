@@ -1,5 +1,5 @@
 use eframe::egui;
-use egui::{Color32, FontId, Pos2, Rect, Stroke, Vec2};
+use egui::{panel, Color32, FontId, Frame, LayerId, Order, Pos2, Rect, RichText, Rounding, Stroke, Ui, Vec2};
 use log::debug;
 use rand::Rng;
 use std::{thread, time::{Duration, Instant}};
@@ -135,7 +135,6 @@ impl RocqVisualizer {
                     egui::Key::ArrowDown | egui::Key::Enter => {
                         if self.proof_state.current_step < self.proof_state.proof_lines.len() {
 
-                            // todo tree pattern based on goals
                             // todo show goals in gui
                             {
                                 let (line_num, line_text) = self.proof_state.get_current_tactic().map(|(n, t)| (*n, t.clone())).unwrap_or((0, String::new()));
@@ -218,8 +217,16 @@ impl RocqVisualizer {
                                                 let mut tactics_to_send = Vec::new();
 
                                                 let mut has_auto : bool = false; 
-
+                                                let mut has_bad : bool = false; 
+                                                
                                                 for tactic in tactics {
+                                                    if tactic.contains("admit") || tactic.contains("admitted") || tactic.contains("shelve") 
+                                                    || tactic.contains("admit.") || tactic.contains("admitted.") || tactic.contains("shelve.") 
+                                                    || tactic.contains("Admitted.") || tactic.contains("Admitted.") 
+                                                    {
+                                                        has_bad = true;
+                                                    }
+
                                                     // If this tactic contains "auto", replace it with extracted tactics
                                                     if tactic.contains("auto") {
                                                         has_auto = true;
@@ -244,7 +251,7 @@ impl RocqVisualizer {
                                                 
                                                 
                                                 // here be trees
-                                                self.spawn_tree_pattern(ctx, tactics_to_send.len());
+                                                self.spawn_tree_pattern(ctx, has_bad, tactics_to_send.len());
 
 
 
@@ -394,7 +401,7 @@ impl RocqVisualizer {
     }
 
 
-fn spawn_tree_pattern(&mut self, ctx: &egui::Context, tactic_count: usize) {
+fn spawn_tree_pattern(&mut self, ctx: &egui::Context, has_bad : bool,  tactic_count: usize) {
     let screen_rect = ctx.screen_rect();
     let mut rng = rand::thread_rng();
 
@@ -406,12 +413,16 @@ fn spawn_tree_pattern(&mut self, ctx: &egui::Context, tactic_count: usize) {
                 rng.gen_range(screen_rect.height() * MIN_TREE_START_Y..screen_rect.height() * MAX_TREE_START_Y),
             );
         
-            let color = Color32::from_rgb(
-                rng.gen_range(100..255),
-                rng.gen_range(100..255),
-                rng.gen_range(100..255),
-            );
-        
+            
+            let color = 
+            if has_bad { Color32::from_rgb(255, 0, 0) } else {
+                Color32::from_rgb(
+                    rng.gen_range(100..255),
+                    rng.gen_range(100..255),
+                    rng.gen_range(100..255),
+                )
+            };
+
             let depth = tactic_count;
             let tree_life_duration = rng.gen_range(TREE_LIFETIME_MIN..TREE_LIFETIME_MAX);
             let tree = TreePattern {
@@ -586,6 +597,120 @@ fn render_proof_text(&self, ctx: &egui::Context) {
         );
     }
 }
+
+pub fn render_proof_state(ui: &mut Ui, proof_state: &Option<ProofStateSnapshot>) {
+    let ctx = ui.ctx();
+    let screen_rect = ctx.screen_rect();
+
+    // --- Layout bounds -----------------------------------------------------
+    let screen_height = screen_rect.height();
+    let panel_height = screen_height * 0.25;
+    let panel_margin = 16.0;
+
+    let panel_rect = egui::Rect::from_min_max(
+        egui::pos2(screen_rect.min.x + panel_margin, screen_rect.max.y - panel_height - panel_margin),
+        egui::pos2(screen_rect.max.x - panel_margin, screen_rect.max.y - panel_margin),
+    );
+
+    // --- Visual style ------------------------------------------------------
+    let bg = Color32::from_rgba_premultiplied(40, 40, 40, 220); // semi-opaque dark grey
+    let border = Color32::from_gray(120);
+    let sidebar = Color32::from_gray(200);
+    let white = Color32::from_rgb(255, 255, 255);
+    let grey = Color32::from_gray(160);
+    let font_size = 42.0;
+
+    // --- Background Layer --------------------------------------------------
+    let painter_bg = ctx.layer_painter(egui::LayerId::new(
+        egui::Order::Background,
+        egui::Id::new("proof_panel_bg"),
+    ));
+    painter_bg.rect_filled(panel_rect, 6.0, bg);
+    painter_bg.rect_stroke(panel_rect, 6.0, Stroke::new(1.0, border));
+
+    // --- Foreground text layer ---------------------------------------------
+    egui::Area::new("proof_panel")
+        .fixed_pos(panel_rect.min)
+        .show(ctx, |ui| {
+            ui.set_min_size(panel_rect.size());
+            ui.set_clip_rect(panel_rect);
+
+            ui.vertical(|ui| {
+                if let Some(snapshot) = proof_state {
+                    // Header (Goals | Shelved | Unfocused)
+                    ui.horizontal(|ui| {
+                        ui.add_space(8.0);
+                        ui.colored_label(
+                            white,
+                            RichText::new(format!("Goals: {}", snapshot.goals_count))
+                                .monospace()
+                                .size(font_size)
+                                .strong(),
+                        );
+                        ui.add_space(32.0);
+                        ui.colored_label(
+                            white,
+                            RichText::new(format!("Shelved: {}", snapshot.shelved_count))
+                                .monospace()
+                                .size(font_size),
+                        );
+                        ui.add_space(32.0);
+                        ui.colored_label(
+                            white,
+                            RichText::new(format!("Unfocused: {}", snapshot.unfocused_count))
+                                .monospace()
+                                .size(font_size),
+                        );
+                    });
+
+                    ui.add_space(12.0);
+                    ui.separator();
+
+                    if snapshot.goals.is_empty() {
+                        ui.add_space(12.0);
+                        ui.colored_label(
+                            grey,
+                            RichText::new("No goals.")
+                                .monospace()
+                                .size(font_size)
+                                .italics(),
+                        );
+                    } else {
+                        for (i, goal) in snapshot.goals.iter().enumerate() {
+                            ui.add_space(12.0);
+
+                            ui.horizontal(|ui| {
+
+                                ui.label(
+                                    RichText::new(&goal.text)
+                                        .monospace()
+                                        .size(font_size)
+                                        .color(white),
+                                );
+                            });
+
+                            if i < snapshot.goals.len() - 1 {
+                                ui.add_space(6.0);
+                                ui.separator();
+                            }
+                        }
+                    }
+                } else {
+                    ui.add_space(12.0);
+                    ui.colored_label(
+                        grey,
+                        RichText::new("No current proof state")
+                            .monospace()
+                            .size(font_size)
+                            .italics(),
+                    );
+                }
+            });
+        });
+}
+
+
+
 
 
 fn render_tree_patterns(&self, ctx: &egui::Context) {
@@ -860,6 +985,12 @@ impl eframe::App for RocqVisualizer {
         // Render all visual elements
         self.render_tree_patterns(ctx);
         self.render_proof_text(ctx);
+        egui::CentralPanel::default().show(ctx, |ui| {
+            // ui.heading("Rocq Proof State");
+            ui.add_space(8.0);
+
+            Self::render_proof_state(ui, &self.proof_state.current_proof_state);
+        });
         self.render_flash_text(ctx);
         self.render_flicker_message(ctx);
         

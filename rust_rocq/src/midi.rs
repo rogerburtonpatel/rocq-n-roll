@@ -179,6 +179,14 @@ impl MidiOutput {
 pub fn create_tactic_midi_map() -> HashMap<&'static str, Note> {
     let mut map = HashMap::new();
     
+    map.insert("reflexivity.", (60, 100));  // C4
+    map.insert("simpl.", (67, 80));         // G4
+    map.insert("intros.", (64, 90));        // E4
+    map.insert("intro.", (64, 90));         // E4
+    map.insert("apply.", (69, 85));         // A4
+    map.insert("eapply.", (69, 85));        // A4
+    map.insert("rewrite.", (62, 75));       // D4
+
     map.insert("reflexivity", (60, 100));  // C4
     map.insert("simpl", (67, 80));         // G4
     map.insert("intros", (64, 90));        // E4
@@ -186,6 +194,25 @@ pub fn create_tactic_midi_map() -> HashMap<&'static str, Note> {
     map.insert("apply", (69, 85));         // A4
     map.insert("eapply", (69, 85));        // A4
     map.insert("rewrite", (62, 75));       // D4
+
+
+    map.insert("red.", (43,80));            // G2
+    map.insert("cbn.", (55,80));            // G3
+    map.insert("unfold.", (58,80));         // Bb3
+    map.insert("symmetry.", (88,80));       // E6
+    map.insert("assert.", (43,80));         // G2
+    map.insert("remember.", (50,80));       // D3
+    map.insert("subst.", (100,80));         // E7
+    map.insert("refine.", (62,80));         // D4
+    map.insert("exact.", (64,80));          // E4 
+    map.insert("clear.", (58,80));          // Bb3
+    map.insert("exists.", (40,80));         // E2
+    map.insert("eexists.", (39,80));        // Eb2
+    map.insert("discriminate.", (73,80));   // Db5
+    map.insert("contradiction.", (73,80));  // Db5
+    map.insert("easy.", (99,80));           // Eb7
+    map.insert("constructor.", (84,80));    // C6
+    map.insert("simple apply.", (69,80));   // A4
 
     map.insert("red", (43,80));            // G2
     map.insert("cbn", (55,80));            // G3
@@ -208,6 +235,12 @@ pub fn create_tactic_midi_map() -> HashMap<&'static str, Note> {
 
     
     // Induction/recursion - deeper notes
+    map.insert("induction.", (48, 110));    // C3
+    map.insert("elim.", (50, 100));         // D3
+    map.insert("destruct.", (52, 95));      // E3
+    map.insert("inversion.", (52, 95));     // E3
+
+    // Induction/recursion - deeper notes
     map.insert("induction", (48, 110));    // C3
     map.insert("elim", (50, 100));         // D3
     map.insert("destruct", (52, 95));      // E3
@@ -215,23 +248,48 @@ pub fn create_tactic_midi_map() -> HashMap<&'static str, Note> {
     
     // Advanced tactics - higher notes
     map.insert("auto", (72, 70));          // C5
+    map.insert("tauto.", (74, 75));         // D5
+    map.insert("omega.", (76, 65));         // E5
+    map.insert("lia.", (76,80));            // E5
+
+    map.insert("auto", (72, 70));          // C5
     map.insert("tauto", (74, 75));         // D5
     map.insert("omega", (76, 65));         // E5
     map.insert("lia", (76,80));            // E5
     
+    // Proof structure - special tones
+    map.insert("split.", (65, 85));         // F4 
+    map.insert("left.", (63, 80));          // D#4
+    map.insert("right.", (68, 80));         // G#4
+
     // Proof structure - special tones
     map.insert("split", (65, 85));         // F4 
     map.insert("left", (63, 80));          // D#4
     map.insert("right", (68, 80));         // G#4
     
     // Error/incomplete - dissonant
+    map.insert("admit.", (42, 120));        // Gb2
+    map.insert("Admitted.", (42, 120));     // Gb2
+    map.insert("admitted.", (42, 120));     // Gb2
+    map.insert("shelve.", (68, 120));       // Gb2
+    map.insert("sorry.", (41, 127));        // F2 
+    map.insert("abort.", (43, 120));        // G2 
+
+
+    // Error/incomplete - dissonant
     map.insert("admit", (42, 120));        // Gb2
+    map.insert("Admitted", (42, 120));     // Gb2
     map.insert("admitted", (42, 120));     // Gb2
-    map.insert("shelve", (42, 120));       // Gb2
+    map.insert("shelve", (68, 120));       // Gb2
     map.insert("sorry", (41, 127));        // F2 
     map.insert("abort", (43, 120));        // G2 
 
+
     // Wrappers (no base note — handled dynamically)
+    map.insert("try.", (0, 0));
+    map.insert("repeat.", (0, 0));
+
+        // Wrappers (no base note — handled dynamically)
     map.insert("try", (0, 0));
     map.insert("repeat", (0, 0));
     

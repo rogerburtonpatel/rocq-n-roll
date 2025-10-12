@@ -27,3 +27,8 @@ Proof.
     reflexivity. 
   - auto. 
 Qed.
+
+Theorem classical_music : forall P : Prop, P \/ ~P. 
+Proof.   
+  shelve. 
+  Admitted. 

@@ -123,7 +123,7 @@ impl VscoqLSP {
                         "jsonrpc": "2.0",
                         "id": id,
                         "result": [{
-                            "path": "/Users/clairewang/.opam/default/bin/vscoqtop",
+                            "path": "/Users/path/.opam/default/bin/vscoqtop",
                             "proof": {"mode": 0},
                             "goals": {
                                 "messages": {

@@ -867,7 +867,7 @@ let color = if elapsed < last_word_reveal_time {
         let color = Color32::from_rgba_unmultiplied(color.r(), color.g(), color.b(), alpha);
 
         // Make it BIG
-        let text_size = 74.0;
+        let text_size = 54.0;
         let font = FontId::proportional(text_size);
 
         let screen_rect = ctx.screen_rect();
@@ -998,7 +998,7 @@ fn render_bold_message(&self, ctx: &egui::Context) {
         egui::Id::new("bold_message"),
     ));
 
-    let text_size = 76.0;
+    let text_size = 54.0;
     let font = FontId::proportional(text_size);
 
     // Calculate text size for centering
